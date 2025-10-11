@@ -126,6 +126,18 @@ export default function Dashboard() {
     return { efectivoPct, yapePct }
   }, [saldoCaja])
 
+  // Calcular anterior si la API lo manda en cero pero el porcentaje existe
+  function getAnterior(monto: number, variacion: number, anterior: number) {
+    if ((anterior === 0 || !isFinite(anterior)) && variacion !== 0) {
+      // Si la variación es -100, anterior sería 0 y no queremos dividir por cero
+      // Si variación = -100, monto = 0, anterior = cualquier, pero si monto > 0 y variación < 0, calculamos
+      return monto / (1 + variacion / 100)
+    }
+    return anterior
+  }
+  const ventasDiaAnterior = getAnterior(ventasDia.monto, ventasDia.variacion, ventasDia.anterior)
+  const ventasMesAnterior = getAnterior(ventasMes.monto, ventasMes.variacion, ventasMes.anterior)
+
   if (loading || !user) return <Spinner />
   if (user.rol !== "administrador") return <Spinner warning="" />
 
@@ -167,9 +179,9 @@ export default function Dashboard() {
           title="Ventas del día"
           icon={<ShoppingBag className="h-4 w-4" />}
           value={`S/ ${formatMoney(ventasDia.monto)}`}
-          valuePrev={`S/ ${formatMoney(ventasDia.anterior)}`}
+          valuePrev={`S/ ${formatMoney(ventasDiaAnterior)}`}
           variation={ventasDia.variacion}
-          diff={ventasDia.monto - ventasDia.anterior}
+          diff={ventasDia.monto - ventasDiaAnterior}
           subtitle="vs. ayer"
           accent="from-emerald-500/25 via-emerald-300/15 to-emerald-500/8"
         />
@@ -177,9 +189,9 @@ export default function Dashboard() {
           title="Ventas del mes"
           icon={<DollarSign className="h-4 w-4" />}
           value={`S/ ${formatMoney(ventasMes.monto)}`}
-          valuePrev={`S/ ${formatMoney(ventasMes.anterior)}`}
+          valuePrev={`S/ ${formatMoney(ventasMesAnterior)}`}
           variation={ventasMes.variacion}
-          diff={ventasMes.monto - ventasMes.anterior}
+          diff={ventasMes.monto - ventasMesAnterior}
           subtitle="vs. mes anterior"
           accent="from-blue-500/25 via-sky-500/10 to-cyan-500/8"
         />
@@ -471,12 +483,12 @@ function MetricCard({ title, value, valuePrev, variation, diff, subtitle, icon, 
             {variation.toFixed(2)}%
           </span>
           {diff !== undefined && (
-            <span className={diff >= 0 ? "text-emerald-500" : "text-red-500"}>
+            <span className={diff > 0 ? "text-emerald-500" : diff < 0 ? "text-red-500" : ""}>
               {diff === 0
                 ? "Igual"
                 : diff > 0
                 ? `Hoy +${formatMoney(diff)}`
-                : `Hoy ${formatMoney(diff)}`
+                : `Hoy -${formatMoney(Math.abs(diff))}`
               }
             </span>
           )}
