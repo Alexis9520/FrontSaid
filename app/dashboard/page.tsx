@@ -53,6 +53,7 @@ export default function Dashboard() {
   const { user, loading } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
+  const isAdmin = (user?.rol || "").toLowerCase() === "administrador"
 
   // Añadido valores anteriores
   const [ventasDia, setVentasDia] = useState<VentasDia>({ monto: 0, variacion: 0, anterior: 0 })
@@ -85,12 +86,13 @@ export default function Dashboard() {
     [productosVencimiento, vencPage]
   )
 
-  // Redirección de rol
+  // Redirección de rol: si ya cargó y el usuario no es admin lo enviamos a ventas
   useEffect(() => {
-    if (!loading && user && user.rol === "trabajador") {
+    if (loading) return
+    if (user && !isAdmin) {
       router.replace("/dashboard/ventas")
     }
-  }, [user, loading, router])
+  }, [loading, user, isAdmin, router])
 
   // Carga principal (ahora espera que la API devuelva campos 'anterior' para día, mes y clientes)
   const fetchResumen = () => {
@@ -109,14 +111,20 @@ export default function Dashboard() {
       })
       .finally(() => setRefreshing(false))
   }
-  useEffect(fetchResumen, [toast])
-
-  // Carga ventas por hora
+  // Resumen (solo para admin)
   useEffect(() => {
+    if (loading || !isAdmin) return
+    fetchResumen()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, isAdmin])
+
+  // Carga ventas por hora (solo para admin)
+  useEffect(() => {
+    if (loading || !isAdmin) return
     fetchWithAuth(apiUrl("/api/dashboard/ventas-por-hora"), {}, toast)
       .then((data) => setVentasPorHora(data ?? []))
       .catch(() => setVentasPorHora([]))
-  }, [toast])
+  }, [loading, isAdmin, toast])
 
   // Derivados para caja
   const mediosCaja = useMemo(() => {
@@ -139,7 +147,7 @@ export default function Dashboard() {
   const ventasMesAnterior = getAnterior(ventasMes.monto, ventasMes.variacion, ventasMes.anterior)
 
   if (loading || !user) return <Spinner />
-  if (user.rol !== "administrador") return <Spinner warning="" />
+  if (!isAdmin) return null
 
   return (
     <div className="relative flex flex-col gap-6">
@@ -241,7 +249,7 @@ export default function Dashboard() {
                   <Activity className="h-5 w-5 text-primary" />
                   Ritmo de Ventas (24h)
                 </CardTitle>
-                <CardDescription>Comparativo horario - moderno y visual</CardDescription>
+                <CardDescription>Comparativo horario</CardDescription>
               </CardHeader>
               <CardContent className="pl-1 relative z-10">
                 {ventasPorHora.length === 0 ? (

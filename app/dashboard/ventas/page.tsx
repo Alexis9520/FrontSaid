@@ -1,11 +1,8 @@
 "use client"
 
 import React, { useEffect, useRef, useState, useMemo, useCallback } from "react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
 import {
   Receipt,
-  Plus,
   Search,
   Download,
   FileText,
@@ -20,11 +17,12 @@ import {
   Filter,
   X,
   Columns,
-  Layers,
   Hash,
-  Wallet,
   AlignLeft
 } from "lucide-react"
+
+import { useRouter } from "next/navigation"
+import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -45,11 +43,13 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { DateRangePicker } from "@/components/date-range-picker"
+import { cn } from "@/lib/utils"
 
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
-import { getBoletas } from "@/lib/api"
-import { cn } from "@/lib/utils"
+
+// API (asegúrate de tener estas funciones exportadas desde "@/lib/api")
+import { getBoletasPage, getBoletaById } from "@/lib/api"
 
 /* ------------------------------ Tipos ------------------------------ */
 type ProductoVendido = {
@@ -65,26 +65,19 @@ type Boleta = {
   fecha: string
   cliente: string
   metodoPago?: string
-  total: string | number
-  usuario?: string
-  productos?: ProductoVendido[]
+  total?: string | number
   totalCompra?: string | number
   vuelto?: string | number
+  usuario?: string
+  productos?: ProductoVendido[]
 }
 
 type Rango = { from: Date | undefined; to: Date | undefined }
-interface GetBoletasParams {
-  page: number
-  limit: number
-  search?: string
-  from?: string
-  to?: string
-}
 
 /* ------------------------------ Utilidades export / formato ------------------------------ */
 function arrayToCSV(rows: string[][]) {
   return rows
-    .map(row => row.map(cell => `"${(cell ?? "").replace(/"/g, '""')}"`).join(","))
+    .map(row => row.map(cell => `"${(cell ?? "").toString().replace(/"/g, '""')}"`).join(","))
     .join("\n")
 }
 function downloadCSV(filename: string, rows: string[][]) {
@@ -98,10 +91,18 @@ function downloadCSV(filename: string, rows: string[][]) {
   a.click()
   URL.revokeObjectURL(url)
 }
+function normalizeToDate(fechaString: string) {
+  if (!fechaString) return null
+  // Backend envía "yyyy-MM-dd HH:mm:ss"; normalizamos a ISO con "T"
+  const normalized = fechaString.includes(" ") && !fechaString.includes("T")
+    ? fechaString.replace(" ", "T")
+    : fechaString
+  const d = new Date(normalized)
+  return isNaN(d.getTime()) ? null : d
+}
 function formatFechaHora(fechaString: string) {
-  if (!fechaString) return ""
-  const fecha = new Date(fechaString)
-  if (isNaN(fecha.getTime())) return fechaString
+  const fecha = normalizeToDate(fechaString)
+  if (!fecha) return fechaString || ""
   return `${fecha.getDate().toString().padStart(2, "0")}/${(fecha.getMonth() + 1)
     .toString()
     .padStart(2, "0")}/${fecha.getFullYear()} ${fecha
@@ -110,8 +111,8 @@ function formatFechaHora(fechaString: string) {
     .padStart(2, "0")}:${fecha.getMinutes().toString().padStart(2, "0")}`
 }
 function safeTime(f: string) {
-  const t = new Date(f).getTime()
-  return isNaN(t) ? 0 : t
+  const d = normalizeToDate(f)
+  return d ? d.getTime() : 0
 }
 function exportarBoletasPDF(boletasFiltradas: Boleta[]) {
   const doc = new jsPDF()
@@ -127,8 +128,8 @@ function exportarBoletasPDF(boletasFiltradas: Boleta[]) {
       formatFechaHora(b.fecha),
       b.cliente,
       b.metodoPago ?? "",
-      b.totalCompra ?? "",
-      b.vuelto ?? "",
+      (b.totalCompra ?? b.total ?? "").toString(),
+      (b.vuelto ?? "").toString(),
       b.usuario ?? ""
     ]),
     theme: "grid",
@@ -136,6 +137,11 @@ function exportarBoletasPDF(boletasFiltradas: Boleta[]) {
     alternateRowStyles: { fillColor: [245, 247, 250] }
   })
   doc.save("boletas.pdf")
+}
+function formatFechaDDMM(d: Date) {
+  return `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1)
+    .toString()
+    .padStart(2, "0")}`
 }
 
 /* ------------------------------ Componente principal ------------------------------ */
@@ -146,8 +152,10 @@ export default function VentasPage() {
   const [totalBoletas, setTotalBoletas] = useState(0)
   const [loading, setLoading] = useState(false)
 
+  // paginación UI (1-based)
   const [paginaActual, setPaginaActual] = useState(1)
   const [tamanoPagina, setTamanoPagina] = useState(10)
+
   const [boletaExpandida, setBoletaExpandida] = useState<number | null>(null)
   const [busquedaBoletas, setBusquedaBoletas] = useState("")
   const [rangoFechasBoletas, setRangoFechasBoletas] = useState<Rango>({
@@ -167,8 +175,10 @@ export default function VentasPage() {
       fetchBoletas()
     }, 60000)
     return () => clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoRefrescar, paginaActual, tamanoPagina, busquedaBoletas, rangoFechasBoletas, ordenDesc])
 
+  // Cambios de filtros → vuelve a página 1
   useEffect(() => {
     setPaginaActual(1)
   }, [busquedaBoletas, rangoFechasBoletas, tamanoPagina])
@@ -182,54 +192,46 @@ export default function VentasPage() {
     setLoading(true)
     abortRef.current?.abort()
     abortRef.current = new AbortController()
-
     try {
-      let from = rangoFechasBoletas.from
+      const from = rangoFechasBoletas.from
         ? rangoFechasBoletas.from.toISOString().slice(0, 10)
         : undefined
-      let to = rangoFechasBoletas.to
-        ? new Date(
-            rangoFechasBoletas.to.getFullYear(),
-            rangoFechasBoletas.to.getMonth(),
-            rangoFechasBoletas.to.getDate() + 1
-          )
-            .toISOString()
-            .slice(0, 10)
+      const to = rangoFechasBoletas.to
+        ? rangoFechasBoletas.to.toISOString().slice(0, 10)
         : undefined
 
-      const params: GetBoletasParams = {
-        page: paginaActual,
-        limit: tamanoPagina,
+      // Backend es 0-based + "size"
+      const data = await getBoletasPage({
+        page: paginaActual - 1,
+        size: tamanoPagina,
         search: busquedaBoletas,
         from,
         to
-      }
+      })
 
-      const data: any = await getBoletas(params)
-      if (Array.isArray(data?.boletas)) {
-        const adaptadas: Boleta[] = data.boletas.map((b: any) => ({
-          ...b,
-          numero: b.numero ?? b.boleta ?? "",
-          fecha: b.fecha ?? b.fecha_venta ?? "",
-          total: b.total ?? b.total_compra ?? "",
-          totalCompra: b.totalCompra ?? b.total_compra ?? b.total ?? "",
-          vuelto: b.vuelto ?? "",
-          cliente: b.cliente ?? b.nombre_cliente ?? "",
-          metodoPago: b.metodoPago ?? b.metodo_pago ?? "",
-          usuario: b.usuario ?? b.usuario_nombre ?? "",
-          productos: b.productos ?? b.detalles ?? []
-        }))
+      const rows = Array.isArray(data?.content) ? data.content : []
+      const adaptadas: Boleta[] = rows.map((b: any) => ({
+        id: b.id,
+        numero: b.numero ?? b.boleta ?? "",
+        fecha: b.fecha ?? b.fecha_venta ?? "",
+        cliente: b.cliente ?? b.nombre_cliente ?? "",
+        metodoPago: b.metodoPago ?? b.metodo_pago ?? "",
+        total: b.total ?? b.total_compra ?? b.totalCompra ?? "",
+        totalCompra: b.totalCompra ?? b.total_compra ?? b.total ?? "",
+        vuelto: b.vuelto ?? "",
+        usuario: b.usuario ?? b.usuario_nombre ?? "",
+        // Listado general no trae productos; se cargarán bajo demanda
+        productos: b.productos ?? []
+      }))
 
-        adaptadas.sort((a, b) => {
-          const diff = safeTime(b.fecha) - safeTime(a.fecha)
-          return ordenDesc ? diff : -diff
-        })
-        setBoletas(adaptadas)
-        setTotalBoletas(Number(data.total) || adaptadas.length)
-      } else {
-        setBoletas([])
-        setTotalBoletas(0)
-      }
+      adaptadas.sort((a, b) => {
+        const A = safeTime(a.fecha)
+        const B = safeTime(b.fecha)
+        return ordenDesc ? B - A : A - B
+      })
+
+      setBoletas(adaptadas)
+      setTotalBoletas(typeof data.totalElements === "number" ? data.totalElements : adaptadas.length)
     } catch {
       setBoletas([])
       setTotalBoletas(0)
@@ -247,7 +249,6 @@ export default function VentasPage() {
         "Fecha",
         "Cliente",
         "Método",
-        "Total",
         "Total Compra",
         "Vuelto",
         "Usuario"
@@ -255,10 +256,9 @@ export default function VentasPage() {
       ...boletas.map(b => [
         String(b.numero),
         formatFechaHora(b.fecha),
-        String(b.cliente),
-        String(b.metodoPago ?? ""),
-        String(b.total),
-        String(b.totalCompra ?? ""),
+        String(b.cliente || ""),
+        String(b.metodoPago || ""),
+        String(b.totalCompra ?? b.total ?? ""),
         String(b.vuelto ?? ""),
         String(b.usuario ?? "")
       ])
@@ -266,29 +266,45 @@ export default function VentasPage() {
     downloadCSV("boletas.csv", rows)
   }
 
-  // Stats
-  const totalEfectivo = useMemo(
-    () =>
-      boletas
-        .filter(b => (b.metodoPago ?? "").toLowerCase() === "efectivo")
-        .reduce((s, b) => s + Number(b.totalCompra || 0), 0),
-    [boletas]
-  )
-  const totalDigital = useMemo(
-    () =>
-      boletas
-        .filter(b =>
-          ["yape", "plin"].includes((b.metodoPago ?? "").toLowerCase())
-        )
-        .reduce((s, b) => s + Number(b.totalCompra || 0), 0),
-    [boletas]
-  )
-
-  const metodoBadgeVariant = (met: string | undefined) => {
+  const metodoBadgeVariant = (met?: string) => {
     const m = (met || "").toLowerCase()
     if (m === "efectivo") return "default"
-    if (["yape", "plin", "tarjeta", "pos"].includes(m)) return "secondary"
+    if (["yape", "plin", "tarjeta", "pos", "mixto"].includes(m)) return "secondary"
     return "outline"
+  }
+
+  const onToggleExpand = async (b: Boleta) => {
+    const expandida = boletaExpandida === b.id
+    if (expandida) {
+      setBoletaExpandida(null)
+      return
+    }
+    setBoletaExpandida(b.id)
+    // Lazy-load de productos si están vacíos
+    if (!b.productos || b.productos.length === 0) {
+      try {
+        const full = await getBoletaById(b.id)
+        setBoletas(prev =>
+          prev.map(x =>
+            x.id === b.id
+              ? {
+                  ...x,
+                  productos: (full.productos ?? (full as any).detalles ?? []).map((p: any) => ({
+                    codBarras: p.codBarras ?? p.codigoBarras ?? "",
+                    nombre: p.nombre ?? "",
+                    cantidad: p.cantidad ?? 0,
+                    precio: p.precio ?? p.precioUnitario ?? 0
+                  })),
+                  totalCompra: (full as any).totalCompra ?? x.totalCompra,
+                  vuelto: (full as any).vuelto ?? x.vuelto
+                }
+              : x
+          )
+        )
+      } catch {
+        // Ignorar errores puntuales de carga de detalles
+      }
+    }
   }
 
   return (
@@ -322,7 +338,6 @@ export default function VentasPage() {
             />
             Auto {autoRefrescar ? "ON" : "OFF"}
           </Button>
-          
         </div>
       </header>
 
@@ -428,7 +443,6 @@ export default function VentasPage() {
               />
             </div>
             <div className="lg:col-span-3 flex gap-3 items-center">
-              
               <div className="ml-auto text-[11px] text-muted-foreground">
                 <div className="flex items-center gap-1">
                   <Filter className="h-3.5 w-3.5" /> {totalBoletas} total
@@ -505,7 +519,7 @@ export default function VentasPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(!loading && boletas.length === 0) && (
+                {!loading && boletas.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
                       <Receipt className="inline h-5 w-5 opacity-60 mr-2" />
@@ -522,9 +536,7 @@ export default function VentasPage() {
                           "group cursor-pointer transition-colors",
                           expandida && "bg-primary/5"
                         )}
-                        onDoubleClick={() =>
-                          setBoletaExpandida(expandida ? null : b.id)
-                        }
+                        onDoubleClick={() => onToggleExpand(b)}
                       >
                         <TableCell className="font-semibold text-primary/80">
                           {b.numero}
@@ -546,7 +558,7 @@ export default function VentasPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="font-medium tabular-nums">
-                          {b.totalCompra}
+                          {b.totalCompra ?? b.total ?? "—"}
                         </TableCell>
                         <TableCell className="hidden md:table-cell tabular-nums">
                           {b.vuelto || "—"}
@@ -564,7 +576,7 @@ export default function VentasPage() {
                             className="h-8 w-8"
                             onClick={e => {
                               e.stopPropagation()
-                              setBoletaExpandida(expandida ? null : b.id)
+                              onToggleExpand(b)
                             }}
                             title={expandida ? "Cerrar detalles" : "Ver detalles"}
                           >
@@ -595,8 +607,15 @@ export default function VentasPage() {
                                     </TableRow>
                                   </TableHeader>
                                   <TableBody>
-                                    {b.productos?.map(p => (
-                                      <TableRow key={p.codBarras}>
+                                    {(b.productos ?? []).length === 0 && (
+                                      <TableRow>
+                                        <TableCell colSpan={4} className="py-4 text-muted-foreground text-center">
+                                          Sin productos en esta boleta
+                                        </TableCell>
+                                      </TableRow>
+                                    )}
+                                    {b.productos?.map((p, idx) => (
+                                      <TableRow key={`${p.codBarras}-${idx}`}>
                                         <TableCell className="tabular-nums">
                                           {p.codBarras}
                                         </TableCell>
@@ -617,7 +636,7 @@ export default function VentasPage() {
                                         Total
                                       </TableCell>
                                       <TableCell className="font-semibold tabular-nums">
-                                        {b.totalCompra}
+                                        {b.totalCompra ?? b.total ?? "—"}
                                       </TableCell>
                                     </TableRow>
                                     <TableRow>
@@ -628,7 +647,7 @@ export default function VentasPage() {
                                         Vuelto
                                       </TableCell>
                                       <TableCell className="font-semibold tabular-nums">
-                                        {b.vuelto}
+                                        {b.vuelto ?? "—"}
                                       </TableCell>
                                     </TableRow>
                                   </TableBody>
@@ -799,11 +818,4 @@ function CardGlow() {
   return (
     <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-border/40 [mask-image:linear-gradient(to_bottom,rgba(255,255,255,0.65),rgba(255,255,255,0.1))]" />
   )
-}
-
-/* ------------------------------ Helpers ------------------------------ */
-function formatFechaDDMM(d: Date) {
-  return `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1)
-    .toString()
-    .padStart(2, "0")}`
 }

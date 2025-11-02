@@ -10,21 +10,19 @@ import {
   Plus,
   TrendingDown,
   TrendingUp,
-  AlertTriangle,
   RefreshCcw,
   Eye,
   Flame,
   Layers,
-  Wallet,
   Gauge,
   History,
   LibraryBig,
   Sparkles,
-  Rocket,
   ShieldCheck,
   Clock8,
   Zap,
-  Workflow
+  Workflow,
+  Rocket
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -83,7 +81,7 @@ type CajaResumen = {
   ventasMixto: number
   totalVentas: number
   movimientos?: Movimiento[]
-  diferencia?: number          // Sólo válido cuando la caja está cerrada
+  diferencia?: number
   fechaApertura?: string
   fechaCierre?: string
   usuarioResponsable?: string
@@ -108,11 +106,18 @@ type UltimaCajaCerrada = {
   movimientos: Movimiento[]
 }
 
+type PageResponse<T> = {
+  content: T[]
+  total: number
+  page: number
+  size: number
+}
+
 /* -------------------------------------------------------------------------- */
 /*                              Helpers de Storage                            */
 /* -------------------------------------------------------------------------- */
 async function fetchWithToken(url: string, options: RequestInit = {}): Promise<any> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+  const token = typeof window === "undefined" ? null : localStorage.getItem("token")
   const headers: HeadersInit = {
     ...(options.headers || {}),
     Authorization: token ? `Bearer ${token}` : "",
@@ -157,7 +162,6 @@ export default function CajaPage() {
   const [efectivoInicial, setEfectivoInicial] = useState("")
   const [efectivoFinalDeclarado, setEfectivoFinalDeclarado] = useState("")
   const [nuevoMovimiento, setNuevoMovimiento] = useState({ tipo: "", monto: "", descripcion: "" })
-  const [historial, setHistorial] = useState<HistorialCaja[]>([])
   const [alertaCajaAbierta, setAlertaCajaAbierta] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -168,16 +172,19 @@ export default function CajaPage() {
   const [confirmMovimiento, setConfirmMovimiento] = useState(false)
   const movimientoPendiente = useRef<{ tipo: string; monto: string; descripcion: string } | null>(null)
 
-  // Histórico extendido
+  // Historial paginado (desde backend)
+  const [histPage, setHistPage] = useState(1)        // 1-based en UI
+  const [histPageSize, setHistPageSize] = useState(10)
+  const [historial, setHistorial] = useState<HistorialCaja[]>([])
+  const [histTotal, setHistTotal] = useState(0)
+  const [histLoading, setHistLoading] = useState(false)
+
+  // Histórico extendido (modal de movimientos)
   const [ultimaCajaCerrada, setUltimaCajaCerrada] = useState<UltimaCajaCerrada | null>(null)
   const [dialogHistMovsOpen, setDialogHistMovsOpen] = useState(false)
   const [cajaSeleccionada, setCajaSeleccionada] = useState<HistorialCaja | null>(null)
   const [movimientosCajaSeleccionada, setMovimientosCajaSeleccionada] = useState<Movimiento[] | null>(null)
   const [loadingMovsCajaSeleccionada, setLoadingMovsCajaSeleccionada] = useState(false)
-
-  // Paginación historial
-  const [histPage, setHistPage] = useState(1)
-  const [histPageSize, setHistPageSize] = useState(10)
 
   /* -------------------------- Carga de usuario local ------------------------- */
   useEffect(() => {
@@ -192,43 +199,13 @@ export default function CajaPage() {
     }
   }, [])
 
-  function parseDateSafe(d: string | null): number {
-    if (!d) return 0
-    const t = Date.parse(d)
-    return isNaN(t) ? 0 : t
-  }
-
-  const historialOrdenado = useMemo(
-    () =>
-      [...historial].sort((a, b) => {
-        const da = parseDateSafe(a.fechaApertura)
-        const db = parseDateSafe(b.fechaApertura)
-        return db - da
-      }),
-    [historial]
-  )
-  const totalHistorial = historialOrdenado.length
-  const totalHistPages = Math.max(1, Math.ceil(totalHistorial / histPageSize))
-
-  useEffect(() => {
-    setHistPage(p => Math.min(p, totalHistPages))
-  }, [histPageSize, totalHistPages])
-
-  const historialPageItems = useMemo(
-    () =>
-      historialOrdenado.slice(
-        (histPage - 1) * histPageSize,
-        histPage * histPageSize
-      ),
-    [historialOrdenado, histPage, histPageSize]
-  )
-
   /* ------------------------------ Carga general ------------------------------ */
-  const refreshAll = useCallback(async () => {
+  const refreshCajaActualYAbiertas = useCallback(async () => {
     if (!usuario) return
     setLoading(true)
     setError(null)
     try {
+      // Caja actual
       const data = await fetchWithToken(apiUrl(`/api/cajas/actual?dniUsuario=${usuario.dni}`))
       if (data) {
         const idCaja = data.id ?? data.idCaja
@@ -246,7 +223,6 @@ export default function CajaPage() {
           ventasMixto: data.ventasMixto ?? 0,
           totalVentas: data.totalVentas ?? 0,
           movimientos: data.movimientos ?? [],
-          // IMPORTANTE: sólo conservar diferencia si la caja está cerrada
           diferencia: cajaEstaAbierta ? undefined : (data.diferencia ?? 0),
           fechaApertura: data.fechaApertura,
           fechaCierre: data.fechaCierre,
@@ -258,7 +234,6 @@ export default function CajaPage() {
         setMovimientos(resumenData.movimientos ?? [])
         setCajaAbierta(cajaEstaAbierta)
         setEfectivoInicial(resumenData.efectivoInicial.toFixed(2))
-        // Limpiar “efectivo contado” al cambiar de estado
         setEfectivoFinalDeclarado("")
       } else {
         setResumen(null)
@@ -270,16 +245,7 @@ export default function CajaPage() {
         }
       }
 
-      const hist = await fetchWithToken(apiUrl("/api/cajas/historial"))
-      const histConKey: HistorialCaja[] = (Array.isArray(hist) ? hist : []).map(h => ({
-        ...h,
-        _key:
-          h.id != null
-            ? `caja-${h.id}`
-            : `caja-${h.fechaApertura}-${h.fechaCierre ?? "abierta"}-${h.usuarioResponsable}`
-      }))
-      setHistorial(histConKey)
-
+      // Cajas abiertas (alerta)
       const abiertas = await fetchWithToken(apiUrl("/api/cajas/abiertas"))
       setAlertaCajaAbierta(Array.isArray(abiertas) && abiertas.length > 0)
     } catch (e: any) {
@@ -295,16 +261,79 @@ export default function CajaPage() {
   }, [toast, ultimaCajaCerrada, usuario])
 
   useEffect(() => {
-    refreshAll()
-  }, [refreshAll])
+    refreshCajaActualYAbiertas()
+  }, [refreshCajaActualYAbiertas])
 
+  // Auto refresh parcial (no recarga historial para no romper navegación)
   useEffect(() => {
     if (!autoRefresh) return
     const interval = setInterval(() => {
-      refreshAll()
+      refreshCajaActualYAbiertas()
     }, 30000)
     return () => clearInterval(interval)
-  }, [autoRefresh, refreshAll])
+  }, [autoRefresh, refreshCajaActualYAbiertas])
+
+  /* ------------------------- Carga de Historial (SSR) ------------------------ */
+  const fetchHistorial = useCallback(async (page1: number, size: number) => {
+    setHistLoading(true)
+    try {
+      const url = apiUrl(`/api/cajas/historial?conMovimientos=false&soloManuales=true&page=${page1 - 1}&size=${size}`)
+      const res = await fetchWithToken(url)
+
+      let content: any[] = []
+      let total = 0
+
+      if (!res) {
+        content = []
+        total = 0
+      } else if (Array.isArray(res)) {
+        // Fallback: backend aún envía TODO. No lo pintes todo.
+        total = res.length
+        const start = (page1 - 1) * size
+        const end = start + size
+        content = res.slice(start, end)
+      } else if (Array.isArray(res.content)) {
+        content = res.content
+        // Soporta total o totalElements por compatibilidad
+        total = typeof res.total === "number"
+          ? res.total
+          : (typeof res.totalElements === "number" ? res.totalElements : res.content.length)
+      }
+
+      const mapped: HistorialCaja[] = content.map((h: any) => ({
+        id: h.id ?? h.idCaja ?? 0,
+        fechaApertura: h.fechaApertura,
+        fechaCierre: h.fechaCierre ?? null,
+        efectivoInicial: Number(h.efectivoInicial ?? 0),
+        efectivoFinal: h.efectivoFinal != null ? Number(h.efectivoFinal) : null,
+        diferencia: h.diferencia != null ? Number(h.diferencia) : null,
+        totalYape: Number(h.totalYape ?? 0),
+        usuarioResponsable: h.usuarioResponsable ?? "",
+        _key: h.id != null
+          ? `caja-${h.id}`
+          : `caja-${h.fechaApertura}-${h.fechaCierre ?? "abierta"}-${h.usuarioResponsable}`
+      }))
+
+      setHistorial(mapped)
+      setHistTotal(total)
+    } catch (e: any) {
+      setHistorial([])
+      setHistTotal(0)
+      toast({
+        title: "Error",
+        description: e?.message || "No se pudo cargar el historial",
+        variant: "destructive"
+      })
+    } finally {
+      setHistLoading(false)
+    }
+  }, [toast])
+
+  useEffect(() => {
+    // Carga historial cuando hay usuario y cambian page/size
+    if (!usuario) return
+    fetchHistorial(histPage, histPageSize)
+  }, [usuario, histPage, histPageSize, fetchHistorial])
 
   /* ------------------ Rehidratación última caja cerrada local ----------------- */
   useEffect(() => {
@@ -382,11 +411,13 @@ export default function CajaPage() {
           efectivoInicial: parseFloat(efectivoInicial)
         })
       })
-      await refreshAll()
+      await refreshCajaActualYAbiertas()
       toast({
         title: "Caja abierta",
         description: `Apertura exitosa con S/ ${efectivoInicial}`
       })
+      // refrescar historial (por si aparece una nueva caja)
+      fetchHistorial(histPage, histPageSize)
     } catch {
       toast({
         title: "Error al abrir",
@@ -416,7 +447,6 @@ export default function CajaPage() {
       return
     }
 
-    // Snapshot previa
     const idCajaActual = resumen?.id ?? resumen?.idCaja
     if (idCajaActual && movimientos.length > 0 && resumen?.fechaApertura) {
       setUltimaCajaCerrada(prev =>
@@ -443,7 +473,7 @@ export default function CajaPage() {
         title: "Caja cerrada",
         description: "Cierre registrado correctamente"
       })
-      await refreshAll()
+      await refreshCajaActualYAbiertas()
 
       if (idCajaActual) {
         const histItem = historial.find(h => h.id === idCajaActual)
@@ -459,6 +489,9 @@ export default function CajaPage() {
           localStorage.setItem("ultima_caja_cerrada", JSON.stringify(snapshot))
         }
       }
+
+      // refrescar historial (la caja cerrada aparece con fechaCierre)
+      fetchHistorial(histPage, histPageSize)
     } catch {
       toast({
         title: "Error al cerrar",
@@ -506,7 +539,7 @@ export default function CajaPage() {
           dniUsuario: usuario.dni
         })
       })
-      await refreshAll()
+      await refreshCajaActualYAbiertas()
       setNuevoMovimiento({ tipo: "", monto: "", descripcion: "" })
       toast({ title: "Movimiento registrado" })
     } catch (e: any) {
@@ -530,13 +563,10 @@ export default function CajaPage() {
       ? Number(efectivoFinalDeclarado)
       : null
 
-  // Diferencia preview mientras caja está abierta (sin usar el backend)
   const diferenciaPreview =
     cajaAbierta && efectivoContadoNum !== null
       ? efectivoContadoNum - efectivoEsperadoNum
       : undefined
-
-  const calcularEfectivoEsperado = () => efectivoEsperadoNum.toFixed(2)
 
   const movimientosFiltrados = movimientos.filter(mov =>
     (!movimientoSearch ||
@@ -596,49 +626,16 @@ export default function CajaPage() {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 8 }}
       >
-        
+        {/* Puedes mostrar un aviso/alerta si quieres resaltar faltantes o sobrantes */}
       </motion.div>
     )
   }
 
-  const kpiGrid = (
-    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 relative">
-      <MetricCard
-        title="Efectivo actual"
-        icon={<DollarSign className="h-4 w-4" />}
-        value={resumen ? resumen.efectivo : null}
-        suffix="S/"
-        accent="from-emerald-500/25 to-emerald-500/5"
-        footer="Disponible en caja"
-      />
-      <MetricCard
-        title="Pagos Yape"
-        icon={<Calculator className="h-4 w-4" />}
-        value={resumen ? resumen.totalYape : null}
-        suffix="S/"
-        accent="from-cyan-500/25 to-cyan-500/5"
-        footer="Transacciones digitales"
-      />
-      <MetricCard
-        title="Ingresos"
-        icon={<TrendingUp className="h-4 w-4" />}
-        value={resumen ? resumen.ingresos : null}
-        suffix="S/"
-        positive
-        accent="from-blue-500/25 to-blue-500/5"
-        footer="Movimientos manuales"
-      />
-      <MetricCard
-        title="Egresos"
-        icon={<TrendingDown className="h-4 w-4" />}
-        value={resumen ? resumen.egresos : null}
-        suffix="S/"
-        negative
-        accent="from-red-500/25 to-red-500/5"
-        footer="Salidas registradas"
-      />
-    </section>
-  )
+  const totalHistPages = Math.max(1, Math.ceil(histTotal / histPageSize))
+  // cuántas filas muestra la tabla (lo que llegó en esta página)
+  const shownCount = historial.length
+  const fromIdx = histTotal === 0 ? 0 : (histPage - 1) * histPageSize + (shownCount > 0 ? 1 : 0)
+  const toIdx = (histPage - 1) * histPageSize + shownCount
 
   /* --------------------------------- Render ---------------------------------- */
   return (
@@ -680,7 +677,10 @@ export default function CajaPage() {
               size="sm"
               variant="outline"
               disabled={loading}
-              onClick={refreshAll}
+              onClick={() => {
+                refreshCajaActualYAbiertas()
+                fetchHistorial(histPage, histPageSize)
+              }}
               className="gap-2"
             >
               <Rocket className={cn("h-4 w-4", loading && "animate-spin")} />
@@ -724,7 +724,42 @@ export default function CajaPage() {
       </header>
 
       {/* KPIs */}
-      {kpiGrid}
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 relative">
+        <MetricCard
+          title="Efectivo actual"
+          icon={<DollarSign className="h-4 w-4" />}
+          value={resumen ? resumen.efectivo : null}
+          suffix="S/"
+          accent="from-emerald-500/25 to-emerald-500/5"
+          footer="Disponible en caja"
+        />
+        <MetricCard
+          title="Pagos Yape"
+          icon={<Calculator className="h-4 w-4" />}
+          value={resumen ? resumen.totalYape : null}
+          suffix="S/"
+          accent="from-cyan-500/25 to-cyan-500/5"
+          footer="Transacciones digitales"
+        />
+        <MetricCard
+          title="Ingresos"
+          icon={<TrendingUp className="h-4 w-4" />}
+          value={resumen ? resumen.ingresos : null}
+          suffix="S/"
+          positive
+          accent="from-blue-500/25 to-blue-500/5"
+          footer="Movimientos manuales"
+        />
+        <MetricCard
+          title="Egresos"
+          icon={<TrendingDown className="h-4 w-4" />}
+          value={resumen ? resumen.egresos : null}
+          suffix="S/"
+          negative
+          accent="from-red-500/25 to-red-500/5"
+          footer="Salidas registradas"
+        />
+      </section>
 
       {/* Tabs */}
       <Tabs defaultValue="movimientos" className="space-y-6 relative z-10">
@@ -794,7 +829,6 @@ export default function CajaPage() {
                   <Row label="Ingresos manuales" value={resumen?.ingresos} sign="+" color="text-emerald-500" />
                   <Row label="Ventas efectivo" value={resumen?.ventasEfectivo} sign="+" color="text-emerald-500" />
                   <Row label="Egresos" value={resumen?.egresos} sign="-" color="text-red-500" />
-                  
                 </div>
 
                 <div className="space-y-2">
@@ -817,7 +851,6 @@ export default function CajaPage() {
                 >
                   {!cajaAbierta ? "Caja cerrada" : loading ? "Cerrando..." : "Cerrar Caja"}
                 </Button>
-                {/* Mostrar diferencia sólo: preview durante caja abierta (si hay efectivo contado) o diferencia oficial tras cierre */}
                 <DiferenciaCierreCard
                   diferencia={
                     cajaAbierta
@@ -1042,12 +1075,11 @@ export default function CajaPage() {
                     </Select>
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {(totalHistorial === 0
-                      ? "0"
-                      : `${(histPage - 1) * histPageSize + 1}–${Math.min(
-                          histPage * histPageSize,
-                          totalHistorial
-                        )}`) + ` de ${totalHistorial}`}
+                    {histLoading
+                      ? "Cargando..."
+                      : (histTotal === 0
+                        ? "0"
+                        : `${fromIdx}–${toIdx}`) + ` de ${histTotal}`}
                   </div>
                 </div>
               </div>
@@ -1070,14 +1102,21 @@ export default function CajaPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {historialPageItems.length === 0 && (
+                    {histLoading && (
+                      <TableRow>
+                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                          Cargando historial...
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {!histLoading && historial.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                           Sin registros.
                         </TableCell>
                       </TableRow>
                     )}
-                    {historialPageItems.map(caja => {
+                    {!histLoading && historial.map(caja => {
                       const diff = caja.diferencia
                       return (
                         <TableRow
@@ -1110,9 +1149,9 @@ export default function CajaPage() {
                           <TableCell
                             className={cn(
                               "tabular-nums",
-                              diff && diff < 0
+                              diff != null && diff < 0
                                 ? "text-red-500"
-                                : diff && diff > 0
+                                : diff != null && diff > 0
                                 ? "text-emerald-500"
                                 : ""
                             )}
@@ -1147,7 +1186,7 @@ export default function CajaPage() {
                 </Table>
               </div>
 
-              {totalHistorial > histPageSize && (
+              {histTotal > histPageSize && (
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
                   <div className="text-xs text-muted-foreground">
                     Página {histPage} de {totalHistPages}
@@ -1244,7 +1283,6 @@ export default function CajaPage() {
                       value={resumen?.egresos}
                       negative
                     />
-                    
                   </MetricList>
                 </div>
 

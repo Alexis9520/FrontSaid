@@ -168,11 +168,34 @@ export default function LoginForm() {
                   </span>
                 </h1>
                 <p className="mt-5 max-w-md text-[13.5px] leading-relaxed text-slate-300/90 sm:text-sm md:text-[15px]">
-                  Boticas Said. Siempre pensando en su salud y economía. 
+                  Quantum Boticas. Siempre pensando en su salud y economía.
                 </p>
-                <p className="mt-6 text-[11px] font-medium tracking-wide text-slate-300/70">
-                  
-                </p>
+                <div className="mt-6">
+                  <Card className="bg-background/60 border-border/50">
+                    <CardHeader>
+                      <CardTitle className="text-sm">Credenciales de prueba</CardTitle>
+                      <CardDescription className="text-xs">Demo de la botica, usa estas cuentas para ingresar</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid gap-2">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <div className="text-[13px] font-medium">Administrador</div>
+                            <div className="text-xs text-muted-foreground">DNI: <code className="font-mono">11111111</code></div>
+                            <div className="text-xs text-muted-foreground">Contraseña: <code className="font-mono">111111</code></div>
+                          </div>
+                        </div>
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <div className="text-[13px] font-medium">Trabajador</div>
+                            <div className="text-xs text-muted-foreground">DNI: <code className="font-mono">22222222</code></div>
+                            <div className="text-xs text-muted-foreground">Contraseña: <code className="font-mono">22222</code></div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
             </motion.section>
 
@@ -226,9 +249,47 @@ export default function LoginForm() {
 /* Fondo general (sin líneas) */
 function BackgroundBlobs() {
   return (
-    <div className="pointer-events-none absolute inset-0">
+    <div className="pointer-events-none absolute inset-0 -z-20">
+      {/* Base soft radial blobs */}
       <div className="absolute -left-40 top-0 h-[75vmax] w-[75vmax] rounded-full bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.33),transparent_72%)] blur-[150px]" />
       <div className="absolute bottom-[-25%] right-[-25%] h-[65vmax] w-[65vmax] rounded-full bg-[radial-gradient(circle_at_center,rgba(14,165,233,0.33),transparent_70%)] blur-[150px]" />
+
+      {/* Animated slow gradient overlay (modern subtle motion) */}
+      <div
+        className="absolute inset-0 opacity-60 mix-blend-overlay"
+        style={{
+          background: 'linear-gradient(120deg, rgba(168,85,247,0.12), rgba(236,72,153,0.08), rgba(14,165,233,0.12))',
+          backgroundSize: '300% 300%'
+        }}
+      />
+
+      {/* Floating micro-particles (subtle) */}
+      <div className="absolute inset-0 overflow-hidden">
+  <div className="absolute -left-10 -top-10 w-[140%] h-[140%] bg-[radial-gradient(circle,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:18px_18px] opacity-40 animate-[particlesMove_8s_linear_infinite]" />
+      </div>
+
+      <style jsx>{`
+        @keyframes bgShift {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        @keyframes particlesMove {
+          0% { transform: translateY(0px) translateX(0px) rotate(0deg); }
+          25% { transform: translateY(-12px) translateX(8px) rotate(6deg); }
+          50% { transform: translateY(6px) translateX(18px) rotate(12deg); }
+          75% { transform: translateY(-6px) translateX(6px) rotate(4deg); }
+          100% { transform: translateY(0px) translateX(0px) rotate(0deg); }
+        }
+        /* Apply the background shift animation to the overlay element */
+        .mix-blend-overlay[style] {
+          animation: bgShift 10s ease-in-out infinite;
+        }
+        .animate-[particlesMove_8s_linear_infinite] { animation: particlesMove 8s linear infinite; }
+        @media (prefers-reduced-motion: reduce) {
+          .mix-blend-overlay[style], .animate-[particlesMove_20s_linear_infinite] { animation: none !important; }
+        }
+      `}</style>
     </div>
   )
 }
@@ -238,16 +299,34 @@ function BackgroundBlobs() {
 function AmbientWelcomeBackground() {
   return (
     <div className="pointer-events-none absolute inset-0 -z-10 overflow-visible">
-      <div className="absolute inset-[-40%] animate-[swirl_22s_linear_infinite] rounded-full opacity-[0.55] blur-[110px] [background:conic-gradient(from_0deg,rgba(168,85,247,0.55),rgba(14,165,233,0.45),rgba(236,72,153,0.50),rgba(168,85,247,0.55))] [mask-image:radial-gradient(circle_at_center,black_55%,transparent_80%)]" />
-      <div className="absolute inset-[-35%] blur-[90px] [background:radial-gradient(circle_at_30%_35%,rgba(168,85,247,0.5),transparent_60%),radial-gradient(circle_at_70%_65%,rgba(14,165,233,0.45),transparent_65%)] [mask-image:radial-gradient(circle_at_center,black_60%,transparent_82%)]" />
+      {/* Layered floating blobs animation (different style): multiple blobs drifting with slight scale/opacity changes */}
+  <div className="absolute -left-20 -top-10 h-[58vmax] w-[58vmax] rounded-full blur-[110px] opacity-70 bg-[radial-gradient(circle_at_20%_30%,rgba(99,102,241,0.38),transparent_60%)] animate-[floatA_8s_ease-in-out_infinite]" />
+  <div className="absolute -right-28 top-6 h-[48vmax] w-[48vmax] rounded-full blur-[90px] opacity-65 bg-[radial-gradient(circle_at_80%_70%,rgba(236,72,153,0.34),transparent_60%)] animate-[floatB_10s_ease-in-out_infinite]" />
+  <div className="absolute left-1/3 -bottom-12 h-[46vmax] w-[46vmax] rounded-full blur-[100px] opacity-60 bg-[radial-gradient(circle_at_50%_50%,rgba(14,165,233,0.32),transparent_60%)] animate-[floatC_9s_ease-in-out_infinite]" />
+
       <style jsx>{`
-        @keyframes swirl {
-          0% { transform: rotate(0deg) scale(1); }
-          50% { transform: rotate(190deg) scale(1.12); }
-          100% { transform: rotate(360deg) scale(1); }
+        @keyframes floatA {
+          0% { transform: translateY(0px) translateX(0px) scale(1); opacity: 0.72; }
+          25% { transform: translateY(-24px) translateX(18px) scale(1.03); opacity: 0.8; }
+          50% { transform: translateY(0px) translateX(36px) scale(1.02); opacity: 0.7; }
+          75% { transform: translateY(18px) translateX(18px) scale(1.01); opacity: 0.78; }
+          100% { transform: translateY(0px) translateX(0px) scale(1); opacity: 0.72; }
+        }
+        @keyframes floatB {
+          0% { transform: translateY(0px) translateX(0px) scale(1); opacity: 0.65; }
+          30% { transform: translateY(18px) translateX(-22px) scale(1.04); opacity: 0.72; }
+          60% { transform: translateY(-12px) translateX(-40px) scale(1.02); opacity: 0.6; }
+          100% { transform: translateY(0px) translateX(0px) scale(1); opacity: 0.65; }
+        }
+        @keyframes floatC {
+          0% { transform: translateY(0px) translateX(0px) scale(1); opacity: 0.62; }
+          20% { transform: translateY(-18px) translateX(12px) scale(1.02); opacity: 0.7; }
+          50% { transform: translateY(22px) translateX(-8px) scale(1.01); opacity: 0.6; }
+          80% { transform: translateY(-6px) translateX(-26px) scale(1.03); opacity: 0.68; }
+          100% { transform: translateY(0px) translateX(0px) scale(1); opacity: 0.62; }
         }
         @media (prefers-reduced-motion: reduce) {
-          .animate-[swirl_22s_linear_infinite] { animation: none; }
+          .animate-[floatA_8s_ease-in-out_infinite], .animate-[floatB_10s_ease-in-out_infinite], .animate-[floatC_9s_ease-in-out_infinite] { animation: none !important; }
         }
       `}</style>
     </div>
@@ -261,7 +340,7 @@ function BrandHeaderLeft({ compactOnMobile }: { compactOnMobile?: boolean }) {
         <Pill className="h-8 w-8 text-white" />
       </div>
       <div className="leading-tight">
-        <p className="text-lg sm:text-xl font-semibold text-white">Boticas Said</p>
+  <p className="text-lg sm:text-xl font-semibold text-white">Quantum Boticas</p>
         <p className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wider text-slate-300">
           Salud & Economía
         </p>

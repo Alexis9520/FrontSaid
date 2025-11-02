@@ -100,10 +100,10 @@ export default function ConfiguracionPage() {
   const { toast } = useToast()
 
   const [configuracionGeneral, setConfiguracionGeneral] = useLocalStorageState<ConfGeneral>("configuracionGeneral", {
-    nombreNegocio: "Boticas Said 123",
+    nombreNegocio: "Quantum Boticas",
     direccion: "Av. Principal 123, Lima",
     telefono: "+51 999 888 777",
-    email: "contacto@boticassaid.com",
+    email: "contacto@quantumboticas.com",
     ruc: "20123456789",
     moneda: "S/",
   })
@@ -146,7 +146,8 @@ export default function ConfiguracionPage() {
       } catch {}
       try {
         const data = await getBoletas({ page: 1, limit: 10 })
-        const lista = Array.isArray(data?.boletas) ? data.boletas : []
+        const itemsRaw = data?.items
+        const lista: any[] = Array.isArray(itemsRaw) ? itemsRaw : []
         const adapt = (b: any): VentaPreview => {
           const numero = b.numero ?? b.boleta ?? "B-000000"
           const fechaR = b.fecha ?? b.fecha_venta ?? new Date().toISOString()
@@ -283,10 +284,10 @@ export default function ConfiguracionPage() {
 
   const resetearConfiguracion = () => {
     setConfiguracionGeneral({
-      nombreNegocio: "Boticas Said 123",
+      nombreNegocio: "Quantum Boticas",
       direccion: "Av. Principal 123, Lima",
       telefono: "+51 999 888 777",
-      email: "contacto@boticassaid.com",
+      email: "contacto@quantumboticas.com",
       ruc: "20123456789",
       moneda: "S/",
     })
@@ -396,7 +397,7 @@ export default function ConfiguracionPage() {
                       <Field value={configuracionGeneral.telefono} label="Teléfono" onChange={(v) => updateGeneral({ telefono: v })} />
                       <Field value={configuracionGeneral.email || ""} label="Email" type="email" onChange={(v) => updateGeneral({ email: v })} />
                       <Field value={configuracionGeneral.ruc || ""} label="RUC" onChange={(v) => updateGeneral({ ruc: v })} />
-                      <Field value={configuracionGeneral.moneda} label="Moneda" onChange={(v) => updateGeneral({ moneda: v })} />
+                      
                     </div>
 
                     <Separator className="fc-separator" />

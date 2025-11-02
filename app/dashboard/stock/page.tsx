@@ -27,7 +27,7 @@ import { fetchWithAuth } from "@/lib/api"
 import { apiUrl } from "@/components/config"
 import clsx from "clsx"
 
-/* --------- TIPOS ORIGINALES ---------- */
+/* --------- TIPOS ORIGINALES (lotes) ---------- */
 type LoteRaw = {
   id: number
   codigoStock?: string
@@ -148,22 +148,47 @@ export default function StockPage() {
   const { toast } = useToast()
   const [lotes, setLotes] = useState<LoteRaw[]>([])
   const [loading, setLoading] = useState(false)
+
+  // Filtros (se enviarán al backend)
   const [busqueda, setBusqueda] = useState("")
   const [filterLab, setFilterLab] = useState("todos")
   const [filterCat, setFilterCat] = useState("todos")
+
+  // UI
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [densityCompact, setDensityCompact] = useState(false)
 
-  // Paginación front
+  // Paginación (UI 1-based)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
+  const [total, setTotal] = useState(0) // total del backend
 
+  // Carga desde backend (PAGINADO)
   const cargar = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await fetchWithAuth(apiUrl("/api/stock"))
-      setLotes(data || [])
+      const q = busqueda.trim() ? encodeURIComponent(busqueda.trim()) : ""
+      const lab = filterLab !== "todos" ? encodeURIComponent(filterLab) : ""
+      const cat = filterCat !== "todos" ? encodeURIComponent(filterCat) : ""
+      const params = new URLSearchParams()
+      params.set("page", String(page - 1)) // backend 0-based
+      params.set("size", String(pageSize))
+      if (q) params.set("q", q)
+      if (lab) params.set("lab", lab)
+      if (cat) params.set("cat", cat)
+
+      const res = await fetchWithAuth(apiUrl(`/api/stock?${params.toString()}`))
+      // Esperado: { content: LoteRaw[], total|totalElements, page, size, totalPages }
+      const content: LoteRaw[] = Array.isArray(res?.content) ? res.content : []
+      const totalElements: number = typeof res?.totalElements === "number"
+        ? res.totalElements
+        : (typeof res?.total === "number" ? res.total : content.length)
+
+      setLotes(content)
+      setTotal(totalElements)
     } catch (e:any) {
+      setLotes([])
+      setTotal(0)
       toast({
         title: "Error",
         description: "No se pudo cargar el stock",
@@ -172,52 +197,41 @@ export default function StockPage() {
     } finally {
       setLoading(false)
     }
-  }, [toast])
+  }, [busqueda, filterLab, filterCat, page, pageSize, toast])
 
   useEffect(()=> {
     cargar()
   }, [cargar])
 
-  // Resúmenes
+  // Resúmenes (sobre la página actual)
   const productosResumen: ProductSummary[] = useMemo(()=> buildSummaries(lotes), [lotes])
 
-  // Filtros
+  // Opciones de filtros (derivadas de la página actual por simplicidad)
   const laboratorios = useMemo(()=> ["todos", ...Array.from(new Set(productosResumen.map(p => p.laboratorio).filter(Boolean)) )], [productosResumen])
   const categorias = useMemo(()=> ["todos", ...Array.from(new Set(productosResumen.map(p => p.categoria).filter(Boolean)) )], [productosResumen])
 
-  const filtrados = useMemo(()=> {
-    const q = busqueda.toLowerCase()
-    return productosResumen.filter(p =>
-      (
-        p.nombre.toLowerCase().includes(q) ||
-        p.codigoBarras.toLowerCase().includes(q) ||
-        (p.laboratorio || "").toLowerCase().includes(q) ||
-        (p.categoria || "").toLowerCase().includes(q) ||
-        (p.concentracion || "").toLowerCase().includes(q)
-      ) &&
-      (filterLab === "todos" || p.laboratorio === filterLab) &&
-      (filterCat === "todos" || p.categoria === filterCat)
-    )
-  }, [productosResumen, busqueda, filterLab, filterCat])
+  // NOTA: los filtros ahora los aplica el backend, así que no filtramos en el front.
+  const filtrados = productosResumen
 
-  // Derivados Tabs
-  const criticos = filtrados.filter(p => p.cantidadGeneral <= p.cantidadMinima)
-  const proximos = filtrados.filter(p => {
+  // Derivados Tabs (sobre la página actual)
+  const criticos = useMemo(() => filtrados.filter(p => p.cantidadGeneral <= p.cantidadMinima), [filtrados])
+  const proximos = useMemo(() => filtrados.filter(p => {
     const d = p.diasHastaPrimerVencimiento
     return d !== null && d > 0 && d <= 30
-  })
-  const vencidos = filtrados.filter(p => p.unidadesVencidas > 0)
-  const riesgo = filtrados
-    .filter(p => p.porcentajeEnRiesgo > 0)
-    .sort((a,b)=> b.porcentajeEnRiesgo - a.porcentajeEnRiesgo)
-
-  // Paginación
-  const totalPages = Math.max(1, Math.ceil(filtrados.length / pageSize))
-  useEffect(() => { if (page > totalPages) setPage(1) }, [totalPages, page])
-  const pageItems = useMemo(
-    () => filtrados.slice((page - 1) * pageSize, page * pageSize),
-    [filtrados, page, pageSize]
+  }), [filtrados])
+  const vencidos = useMemo(() => filtrados.filter(p => p.unidadesVencidas > 0), [filtrados])
+  const riesgo = useMemo(() =>
+    filtrados.filter(p => p.porcentajeEnRiesgo > 0).sort((a,b)=> b.porcentajeEnRiesgo - a.porcentajeEnRiesgo),
+    [filtrados]
   )
+
+  // Paginación (servidor): total viene del backend; la página muestra todos los items de esta página
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  useEffect(() => { if (page > totalPages) setPage(1) }, [totalPages, page])
+  const pageItems = productosResumen // ya son los ítems de esta página
+  const shownCount = pageItems.length
+  const fromIdx = total === 0 ? 0 : (page - 1) * pageSize + (shownCount > 0 ? 1 : 0)
+  const toIdx = (page - 1) * pageSize + shownCount
 
   function toggleExpand(codigo: string) {
     setExpanded(prev => ({ ...prev, [codigo]: !prev[codigo] }))
@@ -253,16 +267,16 @@ export default function StockPage() {
   }
 
   function barraEstadosLotes(p: ProductSummary) {
-    const total = p.cantidadGeneral || 1
+    const totalU = p.cantidadGeneral || 1
     const venc = p.unidadesVencidas
     const riesgo30 = p.unidadesRiesgo30d
-    const vig = Math.max(0, total - venc - riesgo30)
+    const vig = Math.max(0, totalU - venc - riesgo30)
     return (
       <div className="w-40">
         <div className="h-2 flex rounded overflow-hidden ring-1 ring-border/50">
-          <div className="bg-emerald-500/80 backdrop-blur-sm" style={{ width: `${(vig/total)*100}%` }} />
-          <div className="bg-amber-400/80 backdrop-blur-sm" style={{ width: `${(riesgo30/total)*100}%` }} />
-          <div className="bg-red-500/80 backdrop-blur-sm" style={{ width: `${(venc/total)*100}%` }} />
+          <div className="bg-emerald-500/80 backdrop-blur-sm" style={{ width: `${(vig/totalU)*100}%` }} />
+          <div className="bg-amber-400/80 backdrop-blur-sm" style={{ width: `${(riesgo30/totalU)*100}%` }} />
+          <div className="bg-red-500/80 backdrop-blur-sm" style={{ width: `${(venc/totalU)*100}%` }} />
         </div>
         <div className="flex justify-between text-[10px] mt-1 text-muted-foreground">
           <span>Vig {vig}</span>
@@ -273,7 +287,7 @@ export default function StockPage() {
     )
   }
 
-  /* ---------------- KPIs Front ---------------- */
+  /* ---------------- KPIs (sobre la página actual) ---------------- */
   const kpis = useMemo(()=> {
     const totalProductos = productosResumen.length
     const productosCriticos = productosResumen.filter(p => p.cantidadGeneral <= p.cantidadMinima).length
@@ -313,7 +327,7 @@ export default function StockPage() {
             Gestión de Stock
           </h1>
           <p className="text-muted-foreground text-sm">
-            Vista agregada de inventario (solo front). Fuente: /api/stock
+            Vista agregada de inventario (paginado). Fuente: /api/stock
           </p>
         </div>
         <div className="flex gap-2 flex-wrap items-center">
@@ -358,7 +372,7 @@ export default function StockPage() {
           </CardHeader>
             <CardContent>
               <div className="text-3xl font-semibold tabular-nums">{kpis.totalProductos}</div>
-              <p className="text-xs text-muted-foreground mt-1">Total en inventario</p>
+              <p className="text-xs text-muted-foreground mt-1">Total en esta página</p>
             </CardContent>
         </Card>
         <Card className="relative overflow-hidden group">
@@ -369,7 +383,7 @@ export default function StockPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-semibold text-red-600 tabular-nums">{kpis.productosCriticos}</div>
-            <p className="text-xs text-muted-foreground mt-1">Stock ≤ mínimo</p>
+            <p className="text-xs text-muted-foreground mt-1">Stock ≤ mínimo (página)</p>
           </CardContent>
         </Card>
         <Card className="relative overflow-hidden group">
@@ -380,7 +394,7 @@ export default function StockPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-semibold text-orange-600 tabular-nums">{kpis.productosConVencimiento30d}</div>
-            <p className="text-xs text-muted-foreground mt-1">≤ 30 días</p>
+            <p className="text-xs text-muted-foreground mt-1">≤ 30 días (página)</p>
           </CardContent>
         </Card>
         <Card className="relative overflow-hidden group">
@@ -439,7 +453,7 @@ export default function StockPage() {
             </select>
           </div>
           <div className="text-xs text-muted-foreground px-2 py-1 rounded-full bg-muted/50">
-            {filtrados.length} resultados
+            {total} resultados
           </div>
         </div>
 
@@ -449,7 +463,7 @@ export default function StockPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Inventario General</CardTitle>
               <CardDescription>
-                Consolidado a nivel de producto (solo lectura, sin edición de lotes)
+                
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -670,10 +684,10 @@ export default function StockPage() {
               <div className="flex flex-col sm:flex-row justify-between items-center gap-3 mt-5">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span className="font-medium">
-                    {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, filtrados.length)}
+                    {fromIdx}-{toIdx}
                   </span>
                   <span className="opacity-60">de</span>
-                  <span>{filtrados.length}</span>
+                  <span>{total}</span>
                   <select
                     className="border rounded h-7 px-2 text-xs bg-background/70 backdrop-blur"
                     value={pageSize}
@@ -724,7 +738,7 @@ export default function StockPage() {
               <CardDescription>Productos con stock ≤ mínimo</CardDescription>
             </CardHeader>
             <CardContent>
-              {criticos.length === 0 && <div className="text-center py-6 text-muted-foreground text-sm">No hay productos críticos</div>}
+              {criticos.length === 0 && <div className="text-center py-6 text-muted-foreground text-sm">No hay productos críticos en esta página</div>}
               {criticos.length > 0 && (
                 <div className="rounded-xl border overflow-x-auto bg-card/70 backdrop-blur-sm">
                   <Table className="text-sm min-w-[650px]">
@@ -773,7 +787,7 @@ export default function StockPage() {
                 <Calendar className="h-4 w-4 text-orange-500" /> Próximos (≤30 días)
               </h4>
               {proximos.length === 0 && (
-                <div className="text-xs text-muted-foreground mb-6">Sin productos próximos a vencer</div>
+                <div className="text-xs text-muted-foreground mb-6">Sin productos próximos a vencer en esta página</div>
               )}
               {proximos.length > 0 && (
                 <div className="rounded-xl border overflow-x-auto bg-card/70 backdrop-blur-sm mb-8">
@@ -810,7 +824,7 @@ export default function StockPage() {
                 <AlertTriangle className="h-4 w-4 text-red-600" /> Vencidos
               </h4>
               {vencidos.length === 0 && (
-                <div className="text-xs text-muted-foreground">No hay productos vencidos</div>
+                <div className="text-xs text-muted-foreground">No hay productos vencidos en esta página</div>
               )}
               {vencidos.length > 0 && (
                 <div className="rounded-xl border overflow-x-auto bg-card/70 backdrop-blur-sm">
@@ -869,7 +883,7 @@ export default function StockPage() {
                     {riesgo.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
-                          No hay stock en riesgo
+                          No hay stock en riesgo en esta página
                         </TableCell>
                       </TableRow>
                     )}

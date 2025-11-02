@@ -62,9 +62,109 @@ interface VersionLog {
 
 /* ============================================================
    CHANGELOG
-   Añadida versión 1.5.0 (Rediseño completo + mejoras mayores)
+   Añadida versión 1.6.0 (Roles + Ventas/Boletas + Backend JPA)
    ============================================================ */
 const CHANGELOG: VersionLog[] = [
+  {
+    version: "1.6.0",
+    date: "2025-11-02",
+    tag: "stable",
+    summary:
+      "Primera implementación de la pagina de reportes, protección por roles en front, estandarización del endpoint de Boletas a paginación 0‑based (PageResponse) con carga diferida de detalles, y actualización de Specifications en backend. Además, se alinea la paginación en Ventas, se arreglan detalles vacíos y se añade paginación server‑side en Stock.",
+    impactScore: 90,
+    contributors: ["core-ui", "backend-api", "security-team"],
+    entries: [
+      {
+        type: "security",
+        title: "Guardas de rol en Dashboard (solo ADMIN) sin alterar el diseño",
+        description:
+          "Trabajador ya no monta la página ni dispara /api/dashboard/**; se redirige a Ventas. El backend mantiene la restricción y se evita cualquier 403 visible.",
+        scope: "Auth/Roles",
+        highlight: true
+      },
+      {
+        type: "added",
+        title: "Reportes: página implementada con export y gráficos",
+        description:
+          "La nueva página de Reportes ya está implementada: muestra datos mediante gráficos interactivos y permite exportar informes (ventas por día, por producto y inventario) en formatos descargables.",
+        scope: "Reportes",
+        highlight: true
+      },
+      {
+        type: "changed",
+        title: "Boletas: API estandarizada a PageResponse",
+        description:
+          "GET /api/boletas usa page (0‑based) y size; respuesta con content, totalElements, page, size, totalPages. Front adaptado con helpers getBoletasPage.",
+        scope: "Ventas/Boletas",
+        highlight: true
+      },
+      {
+        type: "added",
+        title: "Carga diferida de detalles de boleta",
+        description:
+          "Al expandir una boleta se consulta GET /api/boletas/{id} con fetch‑join; se mapean correctamente codBarras, cantidad y precioUnitario.",
+        scope: "Ventas/Boletas",
+        highlight: true
+      },
+      {
+        type: "fixed",
+        title: "Paginación inconsistente (17 resultados)",
+        description:
+          "Se corrige el desfase page/limit vs size que mostraba 17 elementos; ahora muestra exactamente size por página.",
+        scope: "Ventas/Boletas"
+      },
+      {
+        type: "fixed",
+        title: "Detalles vacíos en boletas",
+        description:
+          "Los productos vendidos se muestran tras lazy‑load; se normaliza el parseo de fecha 'yyyy‑MM‑dd HH:mm:ss' y nombres de campos.",
+        scope: "Ventas/Boletas",
+        highlight: true
+      },
+      {
+        type: "changed",
+        title: "Specifications modernas en Spring Data JPA",
+        description:
+          "Reemplazo de Specification.where(...) (deprecado) por Specification.allOf(...) en filtros del listado.",
+        scope: "Backend/JPA"
+      },
+      {
+        type: "perf",
+        title: "Listado de boletas sin N+1",
+        description:
+          "Precarga relaciones to‑one mediante @EntityGraph en el listado; la colección de detalles no se carga hasta el expand.",
+        scope: "Backend/Boleta"
+      },
+      {
+        type: "added",
+        title: "Stock con paginación y filtros server‑side",
+        description:
+          "Front solicita page/size y filtros (q/lab/cat) a /api/stock; KPIs y tabs se basan en la página actual.",
+        scope: "Stock"
+      },
+      {
+        type: "internal",
+        title: "fetchWithAuth sin silencios para admin‑only",
+        description:
+          "Se mantiene el manejo de 401/403 como antes; al no disparar endpoints admin desde trabajador, desaparecen los mensajes en ese rol.",
+        scope: "Core/HTTP"
+      },
+      {
+        type: "ux",
+        title: "Ventas: orden estable y estados vacíos claros",
+        description:
+          "Normalización de fechas, orden consistente por fecha y mensajes de estado cuando no hay resultados/detalles.",
+        scope: "UX/Ventas"
+      },
+      {
+        type: "fixed",
+        title: "Export y helpers de API",
+        description:
+          "Se restaura el export de getBoletas y se añaden getBoletasPage y getBoletaById con compatibilidad de contrato.",
+        scope: "Build/Imports"
+      }
+    ]
+  },
   {
     version: "1.5.0",
     date: "2025-08-22",

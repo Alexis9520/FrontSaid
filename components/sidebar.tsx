@@ -322,7 +322,7 @@ export default function Sidebar() {
               </div>
               {!collapsed && (
                 <span className="font-semibold text-[15px] tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
-                  Boticas Said
+                  Quantum Boticas
                 </span>
               )}
             </Link>

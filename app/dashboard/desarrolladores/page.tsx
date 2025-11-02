@@ -13,10 +13,15 @@ import {
   User,
   Cpu,
   Layers,
-  ArrowUpRight,
   Stars,
   Orbit,
-  MousePointerClick
+  MousePointerClick,
+  Building2,
+  Target,
+  Lightbulb,
+  ShieldCheck,
+  ArrowUpRight,
+  Search
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -29,7 +34,7 @@ import { cn } from "@/lib/utils"
 // Avatares (ideal: servir desde /public para mejores headers)
 const avatarByRole: Record<string, string> = {
   "Full Stack Developer":
-    "https://media-lim1-1.cdn.whatsapp.net/v/t61.24694-24/287256023_1007659493280257_3777711521537036323_n.jpg?ccb=11-4&oh=01_Q5Aa2QHkm3QFJm1_BFD8S36Z8cTsG5QZcq0nj6G1Yd72GBwiFw&oe=68AA6DDB&_nc_sid=5e03e0&_nc_cat=100",
+    "https://avatars.githubusercontent.com/u/106501453?v=4",
   "Frontend Developer":
     "https://i.pinimg.com/736x/1f/7c/21/1f7c216f53bf523ba7fe3b80f92c816c.jpg"
 }
@@ -58,7 +63,7 @@ interface Dev {
 
 const developers: Dev[] = [
   {
-    nombre: "Miguel Angel Castillo Valero",
+    nombre: "Miguel Castillo",
     rol: "Full Stack Developer",
     bio: "Arquitecta y construye soluciones empresariales altamente escalables con Java y Spring Boot. Domina integración de APIs, optimización de rendimiento y despliegues productivos resilientes.",
     avatar: avatarByRole["Full Stack Developer"],
@@ -69,9 +74,9 @@ const developers: Dev[] = [
     stack: ["Java", "Spring Boot", "API REST", "MySQL", "Git", "VPS"]
   },
   {
-    nombre: "Alexis Dasiel Romani Maravi",
+    nombre: "Alexis Romani",
     rol: "Frontend Developer",
-    bio: "Diseña experiencias inmersivas con React, TypeScript y Angular. Enfocado en accesibilidad, micro-interacciones y rendimiento real en dispositivos variados.",
+    bio: "Diseña experiencias inmersivas con React, TypeScript y Angular. Enfocado en accesibilidad, micro‑interacciones y rendimiento real en dispositivos variados.",
     avatar: avatarByRole["Frontend Developer"],
     github: "https://github.com/Alexis9520",
     linkedin: "https://www.linkedin.com/in/alexis-roman%C3%AD-maravi-0a51a9211/",
@@ -117,8 +122,8 @@ function useParallax(intensity = 30) {
   const ref = useRef<HTMLDivElement | null>(null)
   const x = useMotionValue(0)
   const y = useMotionValue(0)
-  const rx = useSpring(useTransform(y, [ -1, 1 ], [ intensity, -intensity ]), { stiffness: 100, damping: 20 })
-  const ry = useSpring(useTransform(x, [ -1, 1 ], [ -intensity, intensity ]), { stiffness: 100, damping: 20 })
+  const rx = useSpring(useTransform(y, [-1, 1], [intensity, -intensity]), { stiffness: 100, damping: 20 })
+  const ry = useSpring(useTransform(x, [-1, 1], [-intensity, intensity]), { stiffness: 100, damping: 20 })
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     if (!ref.current) return
@@ -159,6 +164,85 @@ function FuturisticBackground() {
 }
 
 /* -------------------------------------------------------------------------- */
+/*                                  ABOUT                                      */
+/* -------------------------------------------------------------------------- */
+function AboutSection() {
+  return (
+    <section className="mt-10">
+      <Card className="relative overflow-hidden border-border/60 backdrop-blur-xl bg-gradient-to-br from-background/80 via-background/60 to-background/40">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_25%,hsl(var(--primary)/0.15),transparent_60%),radial-gradient(circle_at_80%_70%,hsl(var(--secondary)/0.15),transparent_55%)]" />
+        </div>
+        <CardHeader className="relative">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="space-y-1.5">
+              <div className="inline-flex items-center gap-2 text-sm font-semibold tracking-wide text-primary">
+                <Building2 className="h-4 w-4" />
+                Quiénes Somos
+              </div>
+              <CardTitle className="text-2xl">Sobre Quantum Tech</CardTitle>
+              <CardDescription className="max-w-3xl">
+                Somos una empresa de desarrollo de software especializada en crear soluciones tecnológicas a medida que impulsan la transformación digital. Con más de 5 años de experiencia, ayudamos a compañías de distintos sectores a optimizar procesos, mejorar su eficiencia y alcanzar sus objetivos. Unimos excelencia técnica y entendimiento de negocio para entregar resultados medibles.
+              </CardDescription>
+            </div>
+            <Button
+              asChild
+              className="group bg-gradient-to-r from-primary to-primary/70 text-primary-foreground shadow-lg hover:opacity-95"
+            >
+              <a
+                href="https://quantify.net.pe"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Conoce más en quantify.net.pe"
+              >
+                Conoce más
+                <ArrowUpRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-0.5 -translate-y-0.5" />
+              </a>
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="relative">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <AboutItem
+              icon={<Target className="h-5 w-5" />}
+              title="Enfoque en Resultados"
+              desc="Entregamos soluciones que generan valor real para tu negocio."
+            />
+            <AboutItem
+              icon={<User className="h-5 w-5" />}
+              title="Equipo Experto"
+              desc="Profesionales certificados con experiencia en tecnologías de vanguardia."
+            />
+            <AboutItem
+              icon={<Lightbulb className="h-5 w-5" />}
+              title="Innovación Constante"
+              desc="Adoptamos lo último para mantenerte a la vanguardia."
+            />
+            <AboutItem
+              icon={<ShieldCheck className="h-5 w-5" />}
+              title="Calidad Garantizada"
+              desc="Testing riguroso y QA para software de alta calidad."
+            />
+          </div>
+        </CardContent>
+      </Card>
+    </section>
+  )
+}
+
+function AboutItem({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-background/60 backdrop-blur p-4 hover:border-primary/40 transition-colors">
+      <div className="flex items-center gap-2 text-primary mb-1.5 font-semibold">
+        {icon}
+        <span>{title}</span>
+      </div>
+      <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
+    </div>
+  )
+}
+
+/* -------------------------------------------------------------------------- */
 /*                               DEV CARD                                      */
 /* -------------------------------------------------------------------------- */
 function DevCard({ dev, index }: { dev: Dev; index: number }) {
@@ -176,11 +260,7 @@ function DevCard({ dev, index }: { dev: Dev; index: number }) {
     >
       <motion.div
         ref={ref}
-        style={{
-          rotateX: rx,
-          rotateY: ry,
-          transformStyle: "preserve-3d"
-        }}
+        style={{ rotateX: rx, rotateY: ry, transformStyle: "preserve-3d" }}
         onPointerMove={onPointerMove}
         onPointerLeave={reset}
         className="will-change-transform"
@@ -242,7 +322,7 @@ function DevCard({ dev, index }: { dev: Dev; index: number }) {
               {dev.nombre}
             </CardTitle>
             <CardDescription className="text-xs uppercase tracking-[0.2em] text-white/60">
-              Quantify
+              Quantum Tech
             </CardDescription>
           </CardHeader>
 
@@ -253,10 +333,7 @@ function DevCard({ dev, index }: { dev: Dev; index: number }) {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.4 + index * 0.05 }}
-              className={cn(
-                "text-sm leading-relaxed text-white/80",
-                expanded ? "" : "line-clamp-4"
-              )}
+              className={cn("text-sm leading-relaxed text-white/80", expanded ? "" : "line-clamp-4")}
             >
               {dev.bio}
             </motion.p>
@@ -268,19 +345,9 @@ function DevCard({ dev, index }: { dev: Dev; index: number }) {
             </button>
 
             {/* Tech stack */}
-            <motion.ul
-              className="flex flex-wrap gap-2"
-              initial="initial"
-              whileInView="animate"
-              viewport={{ once: true }}
-            >
+            <motion.ul className="flex flex-wrap gap-2" initial="initial" whileInView="animate" viewport={{ once: true }}>
               {dev.stack.map((tech, i) => (
-                <motion.li
-                  key={tech}
-                  custom={i}
-                  variants={chipVariants}
-                  className="relative z-10"
-                >
+                <motion.li key={tech} custom={i} variants={chipVariants} className="relative z-10">
                   <span
                     className={cn(
                       "inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-medium tracking-wide",
@@ -328,11 +395,12 @@ function SocialIcon({
   icon: React.ReactNode
 }) {
   if (!href) return null
+  const external = !href.startsWith("mailto:")
   return (
     <a
       href={href}
-      target={href.startsWith("mailto:") ? "_self" : "_blank"}
-      rel="noopener noreferrer"
+      target={external ? "_blank" : "_self"}
+      rel={external ? "noopener noreferrer" : undefined}
       aria-label={label}
       className={cn(
         "group relative inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl",
@@ -340,10 +408,7 @@ function SocialIcon({
         "transition-all hover:scale-110 hover:ring-primary/50 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       )}
     >
-      <motion.span
-        whileHover={{ rotate: -10 }}
-        className="text-white/80 group-hover:text-white"
-      >
+      <motion.span whileHover={{ rotate: -10 }} className="text-white/80 group-hover:text-white">
         {icon as any}
       </motion.span>
       <span className="absolute -bottom-2 translate-y-full opacity-0 group-hover:opacity-100 group-hover:translate-y-0 text-[8px] font-semibold tracking-widest text-primary transition">
@@ -424,8 +489,16 @@ export default function DesarrolladoresPage() {
             </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-end gap-4">
-            
+          <div className="flex flex-col md:flex-row md:items-end gap-4">
+            <div className="relative w-full md:max-w-sm">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-white/50" />
+              <Input
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="Buscar por nombre, rol o tecnología..."
+                className="pl-8 bg-white/5 text-white placeholder:text-white/50 border-white/10 focus-visible:ring-primary/50"
+              />
+            </div>
             <div className="flex gap-2">
               <Button
                 variant={layout === "grid" ? "default" : "outline"}
@@ -462,6 +535,9 @@ export default function DesarrolladoresPage() {
             </span>
           </div>
         </div>
+
+        {/* Quiénes Somos */}
+        <AboutSection />
       </motion.header>
 
       {/* GRID / STACK */}
@@ -492,7 +568,7 @@ export default function DesarrolladoresPage() {
         transition={{ delay: 0.4 }}
         className="mt-28 pb-10 text-center text-[11px] tracking-wide text-white/40"
       >
-        &copy; {new Date().getFullYear()} Quantify — Ingeniería & Experiencia Digital.
+        &copy; {new Date().getFullYear()} Quantum Tech — Ingeniería & Experiencia Digital.
       </motion.footer>
     </div>
   )

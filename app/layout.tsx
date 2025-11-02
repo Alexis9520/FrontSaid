@@ -10,7 +10,7 @@ import { Toaster } from "@/components/ui/toaster"
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
 
 export const metadata: Metadata = {
-  title: "Boticas Said",
+  title: "Quantum Boticas",
   description: "Sistema de gestión",
   icons: { icon: "/favicon.png" }
 }
