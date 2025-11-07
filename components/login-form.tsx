@@ -168,33 +168,10 @@ export default function LoginForm() {
                   </span>
                 </h1>
                 <p className="mt-5 max-w-md text-[13.5px] leading-relaxed text-slate-300/90 sm:text-sm md:text-[15px]">
-                  Quantum Boticas. Siempre pensando en su salud y economía.
+                  
                 </p>
                 <div className="mt-6">
-                  <Card className="bg-background/60 border-border/50">
-                    <CardHeader>
-                      <CardTitle className="text-sm">Credenciales de prueba</CardTitle>
-                      <CardDescription className="text-xs">Demo de la botica, usa estas cuentas para ingresar</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid gap-2">
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <div className="text-[13px] font-medium">Administrador</div>
-                            <div className="text-xs text-muted-foreground">DNI: <code className="font-mono">11111111</code></div>
-                            <div className="text-xs text-muted-foreground">Contraseña: <code className="font-mono">111111</code></div>
-                          </div>
-                        </div>
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <div className="text-[13px] font-medium">Trabajador</div>
-                            <div className="text-xs text-muted-foreground">DNI: <code className="font-mono">22222222</code></div>
-                            <div className="text-xs text-muted-foreground">Contraseña: <code className="font-mono">222222</code></div>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  
                 </div>
               </div>
             </motion.section>
@@ -340,7 +317,7 @@ function BrandHeaderLeft({ compactOnMobile }: { compactOnMobile?: boolean }) {
         <Pill className="h-8 w-8 text-white" />
       </div>
       <div className="leading-tight">
-  <p className="text-lg sm:text-xl font-semibold text-white">Quantum Boticas</p>
+  <p className="text-lg sm:text-xl font-semibold text-white">Botica Nueva Esperanza</p>
         <p className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wider text-slate-300">
           Salud & Economía
         </p>
@@ -414,7 +391,7 @@ function FormCard(props: SharedProps) {
       </CardContent>
       <CardFooter className="flex flex-col gap-2 pb-6 pt-2">
         <p className="text-center text-[10px] font-medium tracking-wide text-slate-300/70">
-          Siempre pensando en su salud y economía
+          
         </p>
       </CardFooter>
     </Card>
