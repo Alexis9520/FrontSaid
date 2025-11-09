@@ -289,52 +289,58 @@ export default function ProductosPage() {
   }
 
   async function agregarProducto() {
-    if (!nuevoProducto.codigo_barras || !nuevoProducto.nombre || !nuevoProducto.precio_venta_und) {
+    // Ahora sólo nombre es obligatorio
+    if (!nuevoProducto.nombre || !(nuevoProducto.nombre || "").trim()) {
       toast({
-        title: "Campos obligatorios",
-        description: "Código, nombre y precio",
+        title: "Campo obligatorio",
+        description: "Nombre del producto es obligatorio",
         variant: "destructive"
       })
       return
     }
+
     const stocks = nuevoProducto.stocks.map((l, idx) => ({
       codigoStock:
         l.codigoStock ||
-        generarCodigoLote(
-          {
-            id: 0,
-            codigoBarras: nuevoProducto.codigo_barras,
-            nombre: nuevoProducto.nombre,
-            concentracion: nuevoProducto.concentracion,
-            cantidadGeneral: 0,
-            precioVentaUnd: Number(nuevoProducto.precio_venta_und) || 0,
-            descuento: Number(nuevoProducto.descuento) || 0,
-            laboratorio: nuevoProducto.laboratorio,
-            categoria: nuevoProducto.categoria
-          } as Producto,
-          idx
-        ),
+        (nuevoProducto.codigo_barras
+          ? generarCodigoLote(
+              {
+                id: 0,
+                codigoBarras: nuevoProducto.codigo_barras,
+                nombre: nuevoProducto.nombre,
+                concentracion: nuevoProducto.concentracion,
+                cantidadGeneral: 0,
+                precioVentaUnd: Number(nuevoProducto.precio_venta_und) || 0,
+                descuento: Number(nuevoProducto.descuento) || 0,
+                laboratorio: nuevoProducto.laboratorio,
+                categoria: nuevoProducto.categoria
+              } as Producto,
+              idx
+            )
+          : `L${idx + 1}`),
       cantidadUnidades: Number(l.cantidadUnidades) || 0,
       fechaVencimiento: l.fechaVencimiento,
       precioCompra: Number(l.precioCompra) || 0
     }))
-    const body = {
-      codigoBarras: nuevoProducto.codigo_barras,
+
+    const totalUnidades = stocks.reduce((s, l) => s + l.cantidadUnidades, 0)
+
+    const body: any = {
+      codigoBarras: nuevoProducto.codigo_barras && nuevoProducto.codigo_barras.trim() !== "" ? nuevoProducto.codigo_barras : null,
       nombre: nuevoProducto.nombre,
-      concentracion: nuevoProducto.concentracion,
-      cantidadGeneral: stocks.reduce((s, l) => s + l.cantidadUnidades, 0),
-      cantidadMinima: Number(nuevoProducto.cantidad_minima) || 0,
-      precioVentaUnd: Number(nuevoProducto.precio_venta_und),
-      descuento: Number(nuevoProducto.descuento) || 0,
-      laboratorio: nuevoProducto.laboratorio,
-      categoria: nuevoProducto.categoria,
-      cantidadUnidadesBlister:
-        Number(nuevoProducto.cantidad_unidades_blister) || 0,
-      precioVentaBlister: Number(nuevoProducto.precio_venta_blister) || 0,
-      principioActivo: nuevoProducto.principioActivo,
-      tipoMedicamento: nuevoProducto.tipoMedicamento,
-      presentacion: nuevoProducto.presentacion,
-      stocks
+      concentracion: nuevoProducto.concentracion && nuevoProducto.concentracion.trim() !== "" ? nuevoProducto.concentracion : null,
+      cantidadGeneral: totalUnidades > 0 ? totalUnidades : null,
+      cantidadMinima: nuevoProducto.cantidad_minima ? Number(nuevoProducto.cantidad_minima) : null,
+      precioVentaUnd: nuevoProducto.precio_venta_und ? Number(nuevoProducto.precio_venta_und) : null,
+      descuento: nuevoProducto.descuento ? Number(nuevoProducto.descuento) : null,
+      laboratorio: nuevoProducto.laboratorio && nuevoProducto.laboratorio.trim() !== "" ? nuevoProducto.laboratorio : null,
+      categoria: nuevoProducto.categoria && nuevoProducto.categoria.trim() !== "" ? nuevoProducto.categoria : null,
+      cantidadUnidadesBlister: nuevoProducto.cantidad_unidades_blister ? Number(nuevoProducto.cantidad_unidades_blister) : null,
+      precioVentaBlister: nuevoProducto.precio_venta_blister ? Number(nuevoProducto.precio_venta_blister) : null,
+      principioActivo: nuevoProducto.principioActivo && nuevoProducto.principioActivo.trim() !== "" ? nuevoProducto.principioActivo : null,
+      tipoMedicamento: nuevoProducto.tipoMedicamento || null,
+      presentacion: nuevoProducto.presentacion && nuevoProducto.presentacion.trim() !== "" ? nuevoProducto.presentacion : null,
+      stocks: stocks.length > 0 ? stocks : []
     }
     try {
       const data = await fetchWithAuth(apiUrl("/productos/nuevo"), {
@@ -383,15 +389,15 @@ export default function ProductosPage() {
   function editarProducto(p: Producto) {
     setEditandoProducto({
       id: p.id, // <-- incluir id para usar en rutas
-      codigo_barras: p.codigoBarras,
-      nombre: p.nombre,
-      concentracion: p.concentracion,
-      cantidad_general: p.cantidadGeneral.toString(),
+      codigo_barras: p.codigoBarras || "",
+      nombre: p.nombre || "",
+      concentracion: p.concentracion || "",
+      cantidad_general: p.cantidadGeneral?.toString() || "",
       cantidad_minima: p.cantidadMinima?.toString() || "",
-      precio_venta_und: p.precioVentaUnd.toString(),
+      precio_venta_und: p.precioVentaUnd?.toString() || "",
       descuento: p.descuento?.toString() || "",
-      laboratorio: p.laboratorio,
-      categoria: p.categoria,
+      laboratorio: p.laboratorio || "",
+      categoria: p.categoria || "",
       cantidad_unidades_blister: p.cantidadUnidadesBlister?.toString() || "",
       precio_venta_blister: p.precioVentaBlister?.toString() || "",
       principioActivo: p.principioActivo || "",
@@ -467,10 +473,11 @@ export default function ProductosPage() {
 
   async function guardarEdicion() {
     if (!editandoProducto) return
-    if (!editandoProducto.codigo_barras || !editandoProducto.nombre || !editandoProducto.precio_venta_und) {
+    // Sólo nombre es obligatorio al editar
+    if (!editandoProducto.nombre || !(editandoProducto.nombre || "").trim()) {
       toast({
-        title: "Campos obligatorios",
-        description: "Código, nombre y precio",
+        title: "Campo obligatorio",
+        description: "Nombre del producto es obligatorio",
         variant: "destructive"
       })
       return
@@ -489,34 +496,31 @@ export default function ProductosPage() {
     const stocks = (editandoProducto.stocks || []).map(
       (l: StockLote, idx: number) => ({
         codigoStock:
-          l.codigoStock || generarCodigoLote(editandoProducto as Producto, idx),
+          l.codigoStock || (editandoProducto.codigo_barras ? generarCodigoLote(editandoProducto as Producto, idx) : `L${idx + 1}`),
         cantidadUnidades: Number(l.cantidadUnidades) || 0,
         fechaVencimiento: l.fechaVencimiento,
         precioCompra: Number(l.precioCompra) || 0
       })
     )
 
-    const body = {
-      codigoBarras: editandoProducto.codigo_barras,
+    const totalUnidades = stocks.reduce((s: number, l: StockLote) => s + l.cantidadUnidades, 0)
+
+    const body: any = {
+      codigoBarras: editandoProducto.codigo_barras && editandoProducto.codigo_barras.trim() !== "" ? editandoProducto.codigo_barras : null,
       nombre: editandoProducto.nombre,
-      concentracion: editandoProducto.concentracion,
-      cantidadGeneral: stocks.reduce(
-        (s: number, l: StockLote) => s + l.cantidadUnidades,
-        0
-      ),
-      cantidadMinima: Number(editandoProducto.cantidad_minima) || 0,
-      precioVentaUnd: Number(editandoProducto.precio_venta_und),
-      descuento: Number(editandoProducto.descuento) || 0,
-      laboratorio: editandoProducto.laboratorio,
-      categoria: editandoProducto.categoria,
-      cantidadUnidadesBlister:
-        Number(editandoProducto.cantidad_unidades_blister) || 0,
-      precioVentaBlister:
-        Number(editandoProducto.precio_venta_blister) || 0,
-      principioActivo: editandoProducto.principioActivo,
-      tipoMedicamento: editandoProducto.tipoMedicamento,
-      presentacion: editandoProducto.presentacion,
-      stocks
+      concentracion: editandoProducto.concentracion && editandoProducto.concentracion.trim() !== "" ? editandoProducto.concentracion : null,
+      cantidadGeneral: totalUnidades > 0 ? totalUnidades : null,
+      cantidadMinima: editandoProducto.cantidad_minima ? Number(editandoProducto.cantidad_minima) : null,
+      precioVentaUnd: editandoProducto.precio_venta_und ? Number(editandoProducto.precio_venta_und) : null,
+      descuento: editandoProducto.descuento ? Number(editandoProducto.descuento) : null,
+      laboratorio: editandoProducto.laboratorio && editandoProducto.laboratorio.trim() !== "" ? editandoProducto.laboratorio : null,
+      categoria: editandoProducto.categoria && editandoProducto.categoria.trim() !== "" ? editandoProducto.categoria : null,
+      cantidadUnidadesBlister: editandoProducto.cantidad_unidades_blister ? Number(editandoProducto.cantidad_unidades_blister) : null,
+      precioVentaBlister: editandoProducto.precio_venta_blister ? Number(editandoProducto.precio_venta_blister) : null,
+      principioActivo: editandoProducto.principioActivo && editandoProducto.principioActivo.trim() !== "" ? editandoProducto.principioActivo : null,
+      tipoMedicamento: editandoProducto.tipoMedicamento || null,
+      presentacion: editandoProducto.presentacion && editandoProducto.presentacion.trim() !== "" ? editandoProducto.presentacion : null,
+      stocks: stocks.length > 0 ? stocks : []
     }
 
     try {
@@ -743,7 +747,7 @@ export default function ProductosPage() {
                 <section className="space-y-6">
                   <SectionTitle title="Datos Generales" />
                   <Field
-                    label="Código de barras *"
+                    label="Código de barras"
                     value={nuevoProducto.codigo_barras}
                     onChange={v =>
                       setNuevoProducto(p => ({ ...p, codigo_barras: v }))
@@ -851,7 +855,7 @@ export default function ProductosPage() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <Field
-                      label="Precio venta *"
+                      label="Precio venta"
                       type="number"
                       step="0.01"
                       value={nuevoProducto.precio_venta_und}
@@ -869,7 +873,7 @@ export default function ProductosPage() {
                     <SectionTitle title="Lotes iniciales" small />
                     <div className="grid grid-cols-4 gap-3">
                       <Input
-                        placeholder="Código (opt)"
+                        placeholder="Código"
                         className="col-span-2"
                         value={nuevoLote.codigoStock || ""}
                         onChange={e =>
@@ -1752,25 +1756,14 @@ export default function ProductosPage() {
                         }))
                       }
                     />
-                    <Field
-                      label="Descuento"
-                      type="number"
-                      step="0.01"
-                      value={editandoProducto.descuento}
-                      onChange={v =>
-                        setEditandoProducto((p: any) => ({
-                          ...p,
-                          descuento: v
-                        }))
-                      }
-                    />
+                    
                   </div>
 
                   <div className="space-y-2 pt-2">
                     <SectionTitle title="Lotes" small />
                     <div className="grid grid-cols-4 gap-3">
                       <Input
-                        placeholder="Código (opt)"
+                        placeholder="Código"
                         className="col-span-2"
                         value={loteEnEdicion?.codigoStock || ""}
                         onChange={e =>

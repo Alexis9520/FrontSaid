@@ -413,7 +413,7 @@ export default function UsuariosPage() {
                             </SelectContent>
                           </Select>
                         </Field>
-                        <Field label="Vista" htmlFor="preview" optional>
+                        <Field label="" htmlFor="rol">
                           <div className="flex gap-2">
                             {nuevoUsuario.rol === "administrador" ? (
                               <Badge className="bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-semibold shadow ring-1 ring-yellow-500/50">
