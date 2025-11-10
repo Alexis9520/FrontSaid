@@ -38,6 +38,7 @@ import { StatCard } from "@/components/reportes/StatCard"
 import { DataTable, Column } from "@/components/reportes/DataTable"
 import { InventoryTable } from "@/components/reportes/InventoryTable"
 import CustomersTable from "@/components/reportes/CustomersTable"
+import Spinner from "@/components/ui/Spinner"
 import {
   getSalesSummary, getSalesByDay, getTopProducts, getPaymentMix,
   exportSalesByDay, exportSalesByProduct,
@@ -253,6 +254,7 @@ export default function ReportesPage() {
   const [loading, setLoading] = useState(false)
 
   const [helpOpen, setHelpOpen] = useState(false)
+  const [exportingInventory, setExportingInventory] = useState(false)
 
   // Valores de caja (acepta DTO desagregado o antiguo)
   const ingresosVentas = toNumber(caja?.ingresosVentas ?? caja?.ingresos ?? caja?.ventas ?? 0)
@@ -484,12 +486,7 @@ export default function ReportesPage() {
                 </CardTitle>
                 <CardDescription>Todos los productos, lotes y métricas de stock</CardDescription>
               </div>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => exportInventoryProfessional()}>
-                  <Download className="w-4 h-4 mr-1" />
-                  Descargar Inventario Avanzado
-                </Button>
-              </div>
+              
             </CardHeader>
             <CardContent>
               <InventoryTable />

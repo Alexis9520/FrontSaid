@@ -164,7 +164,7 @@ export default function LoginForm() {
                 <BrandHeaderLeft compactOnMobile />
                 <h1 className="mt-8 text-[2.35rem] font-bold leading-[1.05] tracking-tight sm:text-[2.9rem] md:text-[3.2rem] lg:text-[3.6rem] xl:text-[4.25rem]">
                   <span className="bg-gradient-to-r from-white via-fuchsia-200 to-cyan-200 bg-clip-text text-transparent drop-shadow-[0_2px_10px_rgba(0,0,0,0.45)]">
-                    Bienvenido.
+                    Bienvenido
                   </span>
                 </h1>
                 <p className="mt-5 max-w-md text-[13.5px] leading-relaxed text-slate-300/90 sm:text-sm md:text-[15px]">
@@ -313,16 +313,16 @@ function AmbientWelcomeBackground() {
 function BrandHeaderLeft({ compactOnMobile }: { compactOnMobile?: boolean }) {
   return (
     <div className={`flex items-center gap-4 ${compactOnMobile ? "sm:gap-4" : ""}`}>
-      <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#6366F1_0%,#8B5CF6_45%,#0EA5E9_100%)] shadow-[0_10px_28px_-8px_rgba(99,102,241,0.65)] ring-2 ring-white/10">
-        <Pill className="h-8 w-8 text-white" />
-      </div>
-      <div className="leading-tight">
-  <p className="text-lg sm:text-xl font-semibold text-white">Botica Nueva Esperanza</p>
-        <p className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wider text-slate-300">
-          Salud & Economía
-        </p>
-      </div>
+    <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl">
+      <img src="/icono-sidebar.png" alt="Icono Sidebar" className="h-12 w-12" />
     </div>
+    <div className="leading-tight">
+      <p className="text-lg sm:text-xl font-semibold text-white">Botica Nueva Esperanza</p>
+      <p className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wider text-slate-300">
+        Salud & Economía
+      </p>
+    </div>
+  </div>
   )
 }
 

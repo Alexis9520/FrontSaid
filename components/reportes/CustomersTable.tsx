@@ -119,9 +119,7 @@ export default function CustomersTable() {
             </tr>
           </thead>
           <tbody>
-            {loading && (
-              <tr><td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">Cargando...</td></tr>
-            )}
+            
             {!loading && filtered.length === 0 && (
               <tr><td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">Sin datos</td></tr>
             )}

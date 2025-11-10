@@ -12,7 +12,7 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
 export const metadata: Metadata = {
   title: "Nueva Esperanza",
   description: "Sistema de gestión",
-  icons: { icon: "/favicon.png" }
+  icons: { icon: "/icono-esperanza.png" }
 }
 
 // (Opcional) Script anti-flash de variables personalizadas (ya te lo pasé antes).

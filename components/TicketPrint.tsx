@@ -128,7 +128,7 @@ export default function TicketPrint({
           padding: 0,
           display: "block",
         }}
-      >
+      > 
         <div style={{ width: "100%", margin: "0 auto", padding: "12px 0" }}>
           {/* HEADER */}
           <div style={{ textAlign: "center", fontWeight: "bold", fontSize: `${setup.fsTotal}px`, letterSpacing: "0.5px", marginBottom: 4 }}>

@@ -309,11 +309,11 @@ export default function Sidebar() {
               className={cn(
                 "flex items-center gap-2 group",
                 collapsed && "justify-center mx-auto"
-              )}
+              )} 
               aria-label="Ir a inicio"
             >
-              <div className="relative flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary via-primary to-primary/80 text-white shadow ring-1 ring-primary/30">
-                <Pill className="h-5 w-5" />
+              <div className="relative flex h-9 w-9 items-center justify-center">
+                <img src="/icono-sidebar.png" alt="Icono Sidebar" className="h-9 w-9" />
                 {isLatestRecent && (
                   <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-primary-foreground/95 text-[8px] font-bold text-primary shadow ring-1 ring-primary">
                     !

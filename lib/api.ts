@@ -67,7 +67,7 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}, toas
   try { return JSON.parse(text); } catch { return null; }
 }
 
-export async function downloadWithAuth(path: string, filename = "reporte.xlsx", toastFn?: ToastFn) {
+export async function downloadWithAuth(path: string, filename = "reporte.xlsx", toastFn?: ToastFn, onStart?: () => void) {
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
   if (!token) {
     if (toastFn) toastFn({ title: "Sesión expirada", description: "Por favor inicia sesión nuevamente.", variant: "destructive" });
@@ -80,6 +80,9 @@ export async function downloadWithAuth(path: string, filename = "reporte.xlsx", 
     try { const text = await blob.text(); const json = JSON.parse(text); msg = json.message || text || msg; } catch {}
     throw new Error(msg);
   }
+  // Notifica al llamador que la respuesta del servidor llegó y la descarga está por comenzar
+  try { onStart && onStart(); } catch (e) { console.warn("onStart callback failed", e) }
+
   const blob = await res.blob(); const url = URL.createObjectURL(blob);
   const a = document.createElement("a"); a.href = url; a.download = filename;
   document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
@@ -125,7 +128,11 @@ export function getInventoryFull(params: { search?: string; categoria?: string; 
   return fetchWithAuth(apiUrl("/api/reports/inventory/full") + toQuery({ page, size, sort, dir, ...rest })) as Promise<PageResponse<InventoryProductFull>>;
 }
 export function getInventoryLots(codigo_barras: string) { return fetchWithAuth(apiUrl("/api/reports/inventory/lots") + toQuery({ codigo_barras })) as Promise<InventoryLot[]> }
-export function exportInventoryFull(params: { search?: string; categoria?: string; activo?: boolean } = {}) { const q = toQuery(params); return downloadWithAuth(`/api/reports/inventory/export-full${q}`, "inventario_full.xlsx") }
+export function exportInventoryFull(params: { search?: string; categoria?: string; activo?: boolean } = {}, onStart?: () => void) {
+  const q = toQuery(params);
+  // Pasamos onStart como cuarto argumento a downloadWithAuth (toastFn queda por defecto undefined)
+  return downloadWithAuth(`/api/reports/inventory/export-full${q}`, "inventario_full.xlsx", undefined, onStart)
+}
 export function exportInventory(scope: "all" | "low" | "near-expiry" | "out-of-stock", days = 30) { const q = toQuery({ scope, days: scope === "near-expiry" ? days : undefined, format: "xlsx" }); return downloadWithAuth(`/api/reports/inventory/export${q}`, `inventario_${scope}.xlsx`) }
 
 /* Clientes (reportes - ADMIN) */

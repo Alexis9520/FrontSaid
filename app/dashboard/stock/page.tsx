@@ -163,6 +163,10 @@ export default function StockPage() {
   const [pageSize, setPageSize] = useState(10)
   const [total, setTotal] = useState(0) // total del backend
 
+  // Carga completa (para filtros y tabs especiales)
+  const [allLotes, setAllLotes] = useState<LoteRaw[] | null>(null)
+  const [allLoading, setAllLoading] = useState(false)
+
   // Carga desde backend (PAGINADO)
   const cargar = useCallback(async () => {
     setLoading(true)
@@ -203,27 +207,117 @@ export default function StockPage() {
     cargar()
   }, [cargar])
 
+  // Cargar todos los lotes (por lotes) para cálculos globales / filtros y tabs
+  const cargarTodos = useCallback(async () => {
+    try {
+      setAllLoading(true)
+      const q = busqueda.trim() ? encodeURIComponent(busqueda.trim()) : ""
+      const lab = filterLab !== "todos" ? encodeURIComponent(filterLab) : ""
+      const cat = filterCat !== "todos" ? encodeURIComponent(filterCat) : ""
+
+      // pedir 1 elemento para conocer total
+      const params0 = new URLSearchParams()
+      params0.set("page", "0")
+      params0.set("size", "1")
+      if (q) params0.set("q", q)
+      if (lab) params0.set("lab", lab)
+      if (cat) params0.set("cat", cat)
+
+      const info = await fetchWithAuth(apiUrl(`/api/stock?${params0.toString()}`))
+      const totalElements: number = typeof info?.totalElements === 'number' ? info.totalElements : (typeof info?.total === 'number' ? info.total : (Array.isArray(info?.content) ? info.content.length : 0))
+
+      if (!totalElements) {
+        setAllLotes([])
+        return
+      }
+
+      const lote = 500
+      const pages = Math.max(1, Math.ceil(totalElements / lote))
+      let all: LoteRaw[] = []
+      for (let p = 0; p < pages; p++) {
+        const params = new URLSearchParams()
+        params.set("page", String(p))
+        params.set("size", String(lote))
+        if (q) params.set("q", q)
+        if (lab) params.set("lab", lab)
+        if (cat) params.set("cat", cat)
+        const res = await fetchWithAuth(apiUrl(`/api/stock?${params.toString()}`))
+        const content: LoteRaw[] = Array.isArray(res?.content) ? res.content : []
+        all = all.concat(content)
+      }
+
+      setAllLotes(all)
+    } catch (err) {
+      console.error('Error cargarTodos:', err)
+      setAllLotes(null)
+    } finally {
+      setAllLoading(false)
+    }
+  }, [busqueda, filterLab, filterCat])
+
+  useEffect(() => {
+    // cargar dataset completo para filtros y tabs especiales
+    cargarTodos()
+  }, [cargarTodos])
+
   // Resúmenes (sobre la página actual)
   const productosResumen: ProductSummary[] = useMemo(()=> buildSummaries(lotes), [lotes])
 
-  // Opciones de filtros (derivadas de la página actual por simplicidad)
-  const laboratorios = useMemo(()=> ["todos", ...Array.from(new Set(productosResumen.map(p => p.laboratorio).filter(Boolean)) )], [productosResumen])
-  const categorias = useMemo(()=> ["todos", ...Array.from(new Set(productosResumen.map(p => p.categoria).filter(Boolean)) )], [productosResumen])
+  // Opciones de filtros: preferimos derivarlas del dataset completo cuando esté disponible
+  const allSummaries = useMemo(() => allLotes ? buildSummaries(allLotes) : null, [allLotes])
+  const laboratorios = useMemo(() => {
+    const source = allSummaries ?? productosResumen
+    return ["todos", ...Array.from(new Set(source.map(p => p.laboratorio).filter(Boolean)) )]
+  }, [allSummaries, productosResumen])
+  const categorias = useMemo(() => {
+    const source = allSummaries ?? productosResumen
+    return ["todos", ...Array.from(new Set(source.map(p => p.categoria).filter(Boolean)) )]
+  }, [allSummaries, productosResumen])
 
   // NOTA: los filtros ahora los aplica el backend, así que no filtramos en el front.
   const filtrados = productosResumen
 
-  // Derivados Tabs (sobre la página actual)
-  const criticos = useMemo(() => filtrados.filter(p => p.cantidadGeneral <= p.cantidadMinima), [filtrados])
-  const proximos = useMemo(() => filtrados.filter(p => {
+  // Derivados Tabs: preferimos usar el dataset completo (allSummaries) si está disponible,
+  // y aplicamos paginación en el front para cada tab.
+  const sourceForTabs = allSummaries ?? filtrados
+
+  const criticosFull = useMemo(() => sourceForTabs.filter(p => p.cantidadGeneral <= p.cantidadMinima), [sourceForTabs])
+  const proximosFull = useMemo(() => sourceForTabs.filter(p => {
     const d = p.diasHastaPrimerVencimiento
     return d !== null && d > 0 && d <= 30
-  }), [filtrados])
-  const vencidos = useMemo(() => filtrados.filter(p => p.unidadesVencidas > 0), [filtrados])
-  const riesgo = useMemo(() =>
-    filtrados.filter(p => p.porcentajeEnRiesgo > 0).sort((a,b)=> b.porcentajeEnRiesgo - a.porcentajeEnRiesgo),
-    [filtrados]
-  )
+  }), [sourceForTabs])
+  const vencidosFull = useMemo(() => sourceForTabs.filter(p => p.unidadesVencidas > 0), [sourceForTabs])
+  const riesgoFull = useMemo(() => sourceForTabs.filter(p => p.porcentajeEnRiesgo > 0).sort((a,b)=> b.porcentajeEnRiesgo - a.porcentajeEnRiesgo), [sourceForTabs])
+
+  // Paginación del front para tabs especiales
+  const [critPage, setCritPage] = useState(1)
+  const [critPageSize, setCritPageSize] = useState(10)
+  const [vencPage, setVencPage] = useState(1)
+  const [vencPageSize, setVencPageSize] = useState(10)
+  const [proxPage, setProxPage] = useState(1)
+  const [proxPageSize, setProxPageSize] = useState(10)
+  const [riesgoPage, setRiesgoPage] = useState(1)
+  const [riesgoPageSize, setRiesgoPageSize] = useState(10)
+
+  const critTotal = criticosFull.length
+  const critTotalPages = Math.max(1, Math.ceil(critTotal / critPageSize))
+  useEffect(() => { if (critPage > critTotalPages) setCritPage(1) }, [critTotalPages, critPage])
+  const critSlice = criticosFull.slice((critPage-1)*critPageSize, (critPage-1)*critPageSize + critPageSize)
+
+  const proxTotal = proximosFull.length
+  const proxTotalPages = Math.max(1, Math.ceil(proxTotal / proxPageSize))
+  useEffect(() => { if (proxPage > proxTotalPages) setProxPage(1) }, [proxTotalPages, proxPage])
+  const proxSlice = proximosFull.slice((proxPage-1)*proxPageSize, (proxPage-1)*proxPageSize + proxPageSize)
+
+  const vencTotal = vencidosFull.length
+  const vencTotalPages = Math.max(1, Math.ceil(vencTotal / vencPageSize))
+  useEffect(() => { if (vencPage > vencTotalPages) setVencPage(1) }, [vencTotalPages, vencPage])
+  const vencSlice = vencidosFull.slice((vencPage-1)*vencPageSize, (vencPage-1)*vencPageSize + vencPageSize)
+
+  const riesgoTotal = riesgoFull.length
+  const riesgoTotalPages = Math.max(1, Math.ceil(riesgoTotal / riesgoPageSize))
+  useEffect(() => { if (riesgoPage > riesgoTotalPages) setRiesgoPage(1) }, [riesgoTotalPages, riesgoPage])
+  const riesgoSlice = riesgoFull.slice((riesgoPage-1)*riesgoPageSize, (riesgoPage-1)*riesgoPageSize + riesgoPageSize)
 
   // Paginación (servidor): total viene del backend; la página muestra todos los items de esta página
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
@@ -738,38 +832,61 @@ export default function StockPage() {
               <CardDescription>Productos con stock ≤ mínimo</CardDescription>
             </CardHeader>
             <CardContent>
-              {criticos.length === 0 && <div className="text-center py-6 text-muted-foreground text-sm">No hay productos críticos en esta página</div>}
-              {criticos.length > 0 && (
-                <div className="rounded-xl border overflow-x-auto bg-card/70 backdrop-blur-sm">
-                  <Table className="text-sm min-w-[650px]">
-                    <TableHeader className="bg-muted/40">
-                      <TableRow>
-                        <TableHead>Código</TableHead>
-                        <TableHead>Producto</TableHead>
-                        <TableHead>Stock</TableHead>
-                        <TableHead>Mínimo</TableHead>
-                        <TableHead>Faltante</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {criticos.map(p => (
-                        <TableRow key={p.codigoBarras}>
-                          <TableCell>{p.codigoBarras}</TableCell>
-                          <TableCell className="font-medium">{p.nombre}</TableCell>
-                          <TableCell>
-                            <Badge variant="destructive" className="rounded-full">
-                              {p.cantidadGeneral} u
-                            </Badge>
-                          </TableCell>
-                          <TableCell>{p.cantidadMinima}</TableCell>
-                          <TableCell className="text-red-600 font-semibold">
-                            {p.cantidadMinima - p.cantidadGeneral} u
-                          </TableCell>
+              {allLoading ? (
+                <div className="text-center py-6 text-muted-foreground text-sm">Cargando...</div>
+              ) : critTotal === 0 ? (
+                <div className="text-center py-6 text-muted-foreground text-sm">No hay productos críticos</div>
+              ) : (
+                <>
+                  <div className="rounded-xl border overflow-x-auto bg-card/70 backdrop-blur-sm">
+                    <Table className="text-sm min-w-[650px]">
+                      <TableHeader className="bg-muted/40">
+                        <TableRow>
+                          <TableHead>Código</TableHead>
+                          <TableHead>Producto</TableHead>
+                          <TableHead>Stock</TableHead>
+                          <TableHead>Mínimo</TableHead>
+                          <TableHead>Faltante</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                      </TableHeader>
+                      <TableBody>
+                        {critSlice.map((p: ProductSummary) => (
+                          <TableRow key={p.codigoBarras}>
+                            <TableCell>{p.codigoBarras}</TableCell>
+                            <TableCell className="font-medium">{p.nombre}</TableCell>
+                            <TableCell>
+                              <Badge variant="destructive" className="rounded-full">
+                                {p.cantidadGeneral} u
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{p.cantidadMinima}</TableCell>
+                            <TableCell className="text-red-600 font-semibold">
+                              {p.cantidadMinima - p.cantidadGeneral} u
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {/* Paginación frontal para Críticos */}
+                  <div className="flex items-center justify-between gap-3 mt-3">
+                    <div className="text-xs text-muted-foreground">
+                      {((critPage-1)*critPageSize)+1}-{Math.min(critPage*critPageSize, critTotal)} de {critTotal}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" variant="outline" disabled={critPage === 1} onClick={()=> setCritPage(p => Math.max(1, p-1))}>Anterior</Button>
+                      <div className="flex items-center gap-1">
+                        <Input className="w-16 h-8" type="number" min={1} max={critTotalPages} value={critPage} onChange={e=> { const v=Number(e.target.value); if(!Number.isNaN(v)) setCritPage(Math.min(Math.max(1,v), critTotalPages)) }} />
+                        <span className="text-xs text-muted-foreground">/ {critTotalPages}</span>
+                      </div>
+                      <Button size="sm" variant="outline" disabled={critPage === critTotalPages} onClick={()=> setCritPage(p=> Math.min(critTotalPages, p+1))}>Siguiente</Button>
+                      <select className="border rounded h-7 px-2 text-xs bg-background/70" value={critPageSize} onChange={e=> { setCritPageSize(Number(e.target.value)); setCritPage(1)}}>
+                        {[5,10,25,50].map(s => <option key={s} value={s}>{s} / pág</option>)}
+                      </select>
+                    </div>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
@@ -786,73 +903,109 @@ export default function StockPage() {
               <h4 className="font-semibold text-sm mb-2 flex items-center gap-1">
                 <Calendar className="h-4 w-4 text-orange-500" /> Próximos (≤30 días)
               </h4>
-              {proximos.length === 0 && (
-                <div className="text-xs text-muted-foreground mb-6">Sin productos próximos a vencer en esta página</div>
-              )}
-              {proximos.length > 0 && (
-                <div className="rounded-xl border overflow-x-auto bg-card/70 backdrop-blur-sm mb-8">
-                  <Table className="text-sm min-w-[600px]">
-                    <TableHeader className="bg-muted/40">
-                      <TableRow>
-                        <TableHead>Código</TableHead>
-                        <TableHead>Producto</TableHead>
-                        <TableHead>Próx. Venc (d)</TableHead>
-                        <TableHead>Stock</TableHead>
-                        <TableHead>Riesgo %</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {proximos.map(p => (
-                        <TableRow key={p.codigoBarras}>
-                          <TableCell>{p.codigoBarras}</TableCell>
-                          <TableCell>{p.nombre}</TableCell>
-                          <TableCell>
-                            <Badge variant="secondary" className="rounded-full">
-                              {p.diasHastaPrimerVencimiento} d
-                            </Badge>
-                          </TableCell>
-                          <TableCell>{p.cantidadGeneral} u</TableCell>
-                          <TableCell>{p.porcentajeEnRiesgo.toFixed(1)}%</TableCell>
+              {allLoading ? (
+                <div className="text-xs text-muted-foreground mb-6">Cargando...</div>
+              ) : proxTotal === 0 ? (
+                <div className="text-xs text-muted-foreground mb-6">Sin productos próximos a vencer</div>
+              ) : (
+                <>
+                  <div className="rounded-xl border overflow-x-auto bg-card/70 backdrop-blur-sm mb-8">
+                    <Table className="text-sm min-w-[600px]">
+                      <TableHeader className="bg-muted/40">
+                        <TableRow>
+                          <TableHead>Código</TableHead>
+                          <TableHead>Producto</TableHead>
+                          <TableHead>Próx. Venc (d)</TableHead>
+                          <TableHead>Stock</TableHead>
+                          <TableHead>Riesgo %</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                      </TableHeader>
+                      <TableBody>
+                        {proxSlice.map((p: ProductSummary) => (
+                          <TableRow key={p.codigoBarras}>
+                            <TableCell>{p.codigoBarras}</TableCell>
+                            <TableCell>{p.nombre}</TableCell>
+                            <TableCell>
+                              <Badge variant="secondary" className="rounded-full">
+                                {p.diasHastaPrimerVencimiento} d
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{p.cantidadGeneral} u</TableCell>
+                            <TableCell>{p.porcentajeEnRiesgo.toFixed(1)}%</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {/* Paginación frontal para Próximos */}
+                  <div className="flex items-center justify-between gap-3 mb-6">
+                    <div className="text-xs text-muted-foreground">{((proxPage-1)*proxPageSize)+1}-{Math.min(proxPage*proxPageSize, proxTotal)} de {proxTotal}</div>
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" variant="outline" disabled={proxPage === 1} onClick={()=> setProxPage(p=> Math.max(1,p-1))}>Anterior</Button>
+                      <div className="flex items-center gap-1">
+                        <Input className="w-16 h-8" type="number" min={1} max={proxTotalPages} value={proxPage} onChange={e=> { const v=Number(e.target.value); if(!Number.isNaN(v)) setProxPage(Math.min(Math.max(1,v), proxTotalPages)) }} />
+                        <span className="text-xs text-muted-foreground">/ {proxTotalPages}</span>
+                      </div>
+                      <Button size="sm" variant="outline" disabled={proxPage === proxTotalPages} onClick={()=> setProxPage(p=> Math.min(proxTotalPages, p+1))}>Siguiente</Button>
+                      <select className="border rounded h-7 px-2 text-xs bg-background/70" value={proxPageSize} onChange={e=> { setProxPageSize(Number(e.target.value)); setProxPage(1)}}>
+                        {[5,10,25,50].map(s => <option key={s} value={s}>{s} / pág</option>)}
+                      </select>
+                    </div>
+                  </div>
+                </>
               )}
 
               <h4 className="font-semibold text-sm mb-2 flex items-center gap-1">
                 <AlertTriangle className="h-4 w-4 text-red-600" /> Vencidos
               </h4>
-              {vencidos.length === 0 && (
-                <div className="text-xs text-muted-foreground">No hay productos vencidos en esta página</div>
-              )}
-              {vencidos.length > 0 && (
-                <div className="rounded-xl border overflow-x-auto bg-card/70 backdrop-blur-sm">
-                  <Table className="text-sm min-w-[600px]">
-                    <TableHeader className="bg-muted/40">
-                      <TableRow>
-                        <TableHead>Código</TableHead>
-                        <TableHead>Producto</TableHead>
-                        <TableHead>Unid Vencidas</TableHead>
-                        <TableHead>Stock Total</TableHead>
-                        <TableHead>Riesgo %</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {vencidos.map(p => (
-                        <TableRow key={p.codigoBarras}>
-                          <TableCell>{p.codigoBarras}</TableCell>
-                          <TableCell>{p.nombre}</TableCell>
-                          <TableCell className="text-red-600 font-semibold">
-                            {p.unidadesVencidas}
-                          </TableCell>
-                          <TableCell>{p.cantidadGeneral}</TableCell>
-                          <TableCell>{p.porcentajeEnRiesgo.toFixed(1)}%</TableCell>
+              {allLoading ? (
+                <div className="text-xs text-muted-foreground">Cargando...</div>
+              ) : vencTotal === 0 ? (
+                <div className="text-xs text-muted-foreground">No hay productos vencidos</div>
+              ) : (
+                <>
+                  <div className="rounded-xl border overflow-x-auto bg-card/70 backdrop-blur-sm">
+                    <Table className="text-sm min-w-[600px]">
+                      <TableHeader className="bg-muted/40">
+                        <TableRow>
+                          <TableHead>Código</TableHead>
+                          <TableHead>Producto</TableHead>
+                          <TableHead>Unid Vencidas</TableHead>
+                          <TableHead>Stock Total</TableHead>
+                          <TableHead>Riesgo %</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                      </TableHeader>
+                      <TableBody>
+                        {vencSlice.map((p: ProductSummary) => (
+                          <TableRow key={p.codigoBarras}>
+                            <TableCell>{p.codigoBarras}</TableCell>
+                            <TableCell>{p.nombre}</TableCell>
+                            <TableCell className="text-red-600 font-semibold">{p.unidadesVencidas}</TableCell>
+                            <TableCell>{p.cantidadGeneral}</TableCell>
+                            <TableCell>{p.porcentajeEnRiesgo.toFixed(1)}%</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {/* Paginación frontal para Vencidos */}
+                  <div className="flex items-center justify-between gap-3 mt-3">
+                    <div className="text-xs text-muted-foreground">{((vencPage-1)*vencPageSize)+1}-{Math.min(vencPage*vencPageSize, vencTotal)} de {vencTotal}</div>
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" variant="outline" disabled={vencPage === 1} onClick={()=> setVencPage(p => Math.max(1, p-1))}>Anterior</Button>
+                      <div className="flex items-center gap-1">
+                        <Input className="w-16 h-8" type="number" min={1} max={vencTotalPages} value={vencPage} onChange={e=> { const v=Number(e.target.value); if(!Number.isNaN(v)) setVencPage(Math.min(Math.max(1,v), vencTotalPages)) }} />
+                        <span className="text-xs text-muted-foreground">/ {vencTotalPages}</span>
+                      </div>
+                      <Button size="sm" variant="outline" disabled={vencPage === vencTotalPages} onClick={()=> setVencPage(p=> Math.min(vencTotalPages, p+1))}>Siguiente</Button>
+                      <select className="border rounded h-7 px-2 text-xs bg-background/70" value={vencPageSize} onChange={e=> { setVencPageSize(Number(e.target.value)); setVencPage(1)}}>
+                        {[5,10,25,50].map(s => <option key={s} value={s}>{s} / pág</option>)}
+                      </select>
+                    </div>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
@@ -880,40 +1033,61 @@ export default function StockPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {riesgo.length === 0 && (
+                    {allLoading ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
-                          No hay stock en riesgo en esta página
-                        </TableCell>
+                        <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">Cargando...</TableCell>
                       </TableRow>
+                    ) : riesgoTotal === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">No hay stock en riesgo</TableCell>
+                      </TableRow>
+                    ) : (
+                      riesgoSlice.map((p: ProductSummary) => (
+                        <TableRow key={p.codigoBarras}>
+                          <TableCell>{p.codigoBarras}</TableCell>
+                          <TableCell>{p.nombre}</TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                p.porcentajeEnRiesgo > 50
+                                  ? "destructive"
+                                  : p.porcentajeEnRiesgo > 20
+                                    ? "secondary"
+                                    : "outline"
+                              }
+                              className="rounded-full"
+                            >
+                              {p.porcentajeEnRiesgo.toFixed(1)}%
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{p.unidadesVencidas + p.unidadesRiesgo30d}</TableCell>
+                          <TableCell>{p.cantidadGeneral}</TableCell>
+                          <TableCell className="text-red-600">{p.unidadesVencidas}</TableCell>
+                          <TableCell className="text-amber-500">{p.unidadesRiesgo30d}</TableCell>
+                        </TableRow>
+                      ))
                     )}
-                    {riesgo.map(p => (
-                      <TableRow key={p.codigoBarras}>
-                        <TableCell>{p.codigoBarras}</TableCell>
-                        <TableCell>{p.nombre}</TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              p.porcentajeEnRiesgo > 50
-                                ? "destructive"
-                                : p.porcentajeEnRiesgo > 20
-                                  ? "secondary"
-                                  : "outline"
-                            }
-                            className="rounded-full"
-                          >
-                            {p.porcentajeEnRiesgo.toFixed(1)}%
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{p.unidadesVencidas + p.unidadesRiesgo30d}</TableCell>
-                        <TableCell>{p.cantidadGeneral}</TableCell>
-                        <TableCell className="text-red-600">{p.unidadesVencidas}</TableCell>
-                        <TableCell className="text-amber-500">{p.unidadesRiesgo30d}</TableCell>
-                      </TableRow>
-                    ))}
                   </TableBody>
                 </Table>
               </div>
+
+              {/* Paginación frontal para Riesgo */}
+              { !allLoading && riesgoTotal > 0 && (
+                <div className="flex items-center justify-between gap-3 mt-3">
+                  <div className="text-xs text-muted-foreground">{((riesgoPage-1)*riesgoPageSize)+1}-{Math.min(riesgoPage*riesgoPageSize, riesgoTotal)} de {riesgoTotal}</div>
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="outline" disabled={riesgoPage === 1} onClick={()=> setRiesgoPage(p => Math.max(1, p-1))}>Anterior</Button>
+                    <div className="flex items-center gap-1">
+                      <Input className="w-16 h-8" type="number" min={1} max={riesgoTotalPages} value={riesgoPage} onChange={e=> { const v=Number(e.target.value); if(!Number.isNaN(v)) setRiesgoPage(Math.min(Math.max(1,v), riesgoTotalPages)) }} />
+                      <span className="text-xs text-muted-foreground">/ {riesgoTotalPages}</span>
+                    </div>
+                    <Button size="sm" variant="outline" disabled={riesgoPage === riesgoTotalPages} onClick={()=> setRiesgoPage(p=> Math.min(riesgoTotalPages, p+1))}>Siguiente</Button>
+                    <select className="border rounded h-7 px-2 text-xs bg-background/70" value={riesgoPageSize} onChange={e=> { setRiesgoPageSize(Number(e.target.value)); setRiesgoPage(1)}}>
+                      {[5,10,25,50].map(s => <option key={s} value={s}>{s} / pág</option>)}
+                    </select>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

@@ -32,6 +32,8 @@ export function InventoryTable() {
   const [data, setData] = useState<PageResponse<InventoryProductFull> | null>(null)
   const [loading, setLoading] = useState(false)
 
+  const [exportState, setExportState] = useState<'idle' | 'generating' | 'downloading'>('idle')
+
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [lotsCache, setLotsCache] = useState<Record<string, InventoryLot[]>>({})
 
@@ -131,19 +133,48 @@ export function InventoryTable() {
           <Button
             variant="outline"
             size="sm"
+            disabled={exportState !== 'idle'}
             onClick={async () => {
+              setExportState('generating')
               try {
                 await exportInventoryFull({
                   search: search.trim() || undefined,
                   categoria: categoria.trim() || undefined,
                   activo: activo === "all" ? undefined : activo === "true",
+                }, () => {
+                  // el servidor respondió y la descarga va a comenzar
+                  setExportState('downloading')
                 })
               } catch (e: any) {
                 alert(e?.message || "No se pudo exportar. ¿Tienes permisos de administrador?")
+              } finally {
+                setExportState('idle')
               }
             }}
           >
-            <Download className="w-4 h-4 mr-1" /> Exportar inventario basico
+            {exportState === 'idle' && (
+              <>
+                <Download className="w-4 h-4 mr-1" /> Exportar inventario basico completo
+              </>
+            )}
+            {exportState === 'generating' && (
+              <>
+                <svg className="animate-spin w-4 h-4 mr-2 text-emerald-600" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                </svg>
+                Generando...
+              </>
+            )}
+            {exportState === 'downloading' && (
+              <>
+                <svg className="animate-spin w-4 h-4 mr-2 text-emerald-600" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                </svg>
+                Descargando...
+              </>
+            )}
           </Button>
         </div>
       </div>

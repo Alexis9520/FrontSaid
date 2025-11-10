@@ -76,7 +76,7 @@ interface ProductoCarrito {
   cantidadBlister: number
   cantidadUnidad: number
   subtotal: number
-  stockDisponible: number // MOD: almacenamos el stock al momento de agregar
+  stockDisponible: number
 }
 interface UsuarioSesion {
   dni: string
@@ -85,7 +85,6 @@ interface UsuarioSesion {
 }
 
 type SortField = "nombre" | "precio" | "stock" | "laboratorio" | "tipo" | "concentracion"
-
 type MetodoPago = "efectivo" | "yape" | "mixto"
 
 /* -------------------------------------------------- */
@@ -213,7 +212,6 @@ export default function NuevaVentaPage() {
   const router = useRouter()
   const { toast } = useToast()
 
-  /* ---------- Estados de búsqueda de productos ---------- */
   const [busqueda, setBusqueda] = useState("")
   const [debouncedBusqueda, setDebouncedBusqueda] = useState("")
   const [productos, setProductos] = useState<Producto[]>([])
@@ -224,49 +222,43 @@ export default function NuevaVentaPage() {
   const [totalElements, setTotalElements] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
 
-  /* ---------- Ordenamiento ---------- */
   const [sortField, setSortField] = useState<SortField>("nombre")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc")
 
-  /* ---------- Selecciones de cantidad ---------- */
   const [blisterUnidadSeleccion, setBlisterUnidadSeleccion] = useState<
     Record<string, { blisters: number; unidades: number }>
   >({})
 
-  /* ---------- Carrito y Pago ---------- */
   const [carrito, setCarrito] = useState<ProductoCarrito[]>([])
   const [metodoPago, setMetodoPago] = useState<MetodoPago>("efectivo")
   const [montoEfectivo, setMontoEfectivo] = useState("")
   const [montoYape, setMontoYape] = useState("")
 
-  /* ---------- Cliente / Sesión ---------- */
   const [dniCliente, setDniCliente] = useState("")
   const [nombreCliente, setNombreCliente] = useState("")
   const [usuarioSesion, setUsuarioSesion] = useState<UsuarioSesion | null>(null)
 
-  /* ---------- Caja ---------- */
   const [cajaAbierta, setCajaAbierta] = useState<boolean | null>(null)
   const [cargandoCaja, setCargandoCaja] = useState(false)
 
-  /* ---------- Configuraciones ---------- */
   const [configuracionGeneral] = useState(() => {
     if (typeof window !== "undefined") {
       const data = localStorage.getItem("configuracionGeneral")
       return data
         ? JSON.parse(data)
         : {
-            nombreNegocio: "Boticas Said",
-            direccion: "Av. Principal 123, Lima",
-            telefono: "+51 999 888 777",
-            ruc: "20123456789",
+            nombreNegocio: "Nueva Esperanza",
+            direccion: "Av. La Esperanza 403 - El Tambo",
+            telefono: "+51 961 668 320",
+            ruc: "1234567890",
             moneda: "S/"
           }
     }
     return {
-      nombreNegocio: "Boticas Said",
-      direccion: "Av. Principal 123, Lima",
-      telefono: "+51 999 888 777",
-      ruc: "20123456789",
+      nombreNegocio: "Botica Nueva Esperanza",
+      direccion: "Av. La Esperanza 403 - El Tambo",
+      telefono: "+51 961 668 320",
+      ruc: "1234567890",
       moneda: "S/"
     }
   })
@@ -293,7 +285,6 @@ export default function NuevaVentaPage() {
     }
   })
 
-  /* ---------- Caja abierta ---------- */
   const checkCajaAbierta = useCallback(
     async (showMessage = false): Promise<boolean> => {
       if (!usuarioSesion?.dni) {
@@ -306,7 +297,7 @@ export default function NuevaVentaPage() {
         const resp = await fetchWithAuth(url)
         if (!resp) {
           setCajaAbierta(false)
-            if (showMessage) {
+          if (showMessage) {
             toast({
               title: "No hay caja abierta",
               description: "Debes abrir una caja antes de realizar la venta.",
@@ -344,7 +335,6 @@ export default function NuevaVentaPage() {
     [usuarioSesion?.dni, toast]
   )
 
-  /* ---------- Cargar productos ---------- */
   const cargarProductos = useCallback(
     async (opts?: { q?: string; page?: number; size?: number }) => {
       try {
@@ -379,7 +369,6 @@ export default function NuevaVentaPage() {
     [debouncedBusqueda, page, pageSize, toast]
   )
 
-  /* ---------- Debounce búsqueda ---------- */
   useEffect(() => {
     const t = setTimeout(() => setDebouncedBusqueda(busqueda.trim()), 300)
     return () => clearTimeout(t)
@@ -390,7 +379,6 @@ export default function NuevaVentaPage() {
     cargarProductos({ q: debouncedBusqueda, page, size: pageSize })
   }, [cargarProductos, debouncedBusqueda, page, pageSize])
 
-  /* ---------- Usuario en sesión ---------- */
   useEffect(() => {
     const usuarioStr = typeof window !== "undefined" ? localStorage.getItem("usuario") : null
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
@@ -424,7 +412,6 @@ export default function NuevaVentaPage() {
     if (usuarioSesion?.dni) checkCajaAbierta()
   }, [usuarioSesion?.dni, checkCajaAbierta])
 
-  /* ---------- Resultados / Ordenamiento ---------- */
   const resultados = useMemo(() => {
     const q = busqueda.trim().toLowerCase()
     const arr = Array.isArray(productos) ? productos : []
@@ -462,7 +449,6 @@ export default function NuevaVentaPage() {
     return base
   }, [productos, busqueda, sortField, sortDir, mostrarResultados])
 
-  /* ---------- Totales ---------- */
   const total = carrito.reduce(
     (sum, item) =>
       sum +
@@ -489,7 +475,6 @@ export default function NuevaVentaPage() {
     faltante = pagado < total ? total - pagado : 0
   }
 
-  /* ---------- Helpers UI ---------- */
   const toggleSort = (field: SortField) => {
     if (sortField === field) setSortDir(d => (d === "asc" ? "desc" : "asc"))
     else {
@@ -498,9 +483,41 @@ export default function NuevaVentaPage() {
     }
   }
 
-  // MOD: agregarAlCarrito guarda stockDisponible y ya no dependemos luego de productos para aumentar/disminuir.
-  const agregarAlCarrito = (producto: Producto) => {
-    const sel = blisterUnidadSeleccion[producto.codigoBarras] || { blisters: 0, unidades: 0 }
+  // VALIDACIÓN al intentar agregar: código de barras y precios
+  const agregarAlCarrito = (producto: Producto, selectionKey: string) => {
+    const codigo = (producto.codigoBarras || "").trim()
+    if (!codigo) {
+      toast({
+        title: "Producto inválido",
+        description: "No se puede agregar un producto sin código de barras.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    const precioUnidadFinal = producto.precioVentaUnd - (producto.descuento ?? 0)
+    if (precioUnidadFinal <= 0) {
+      toast({
+        title: "Precio inválido",
+        description: `El producto "${producto.nombre}" tiene precio unidad <= 0.`,
+        variant: "destructive"
+      })
+      return
+    }
+    if (
+      producto.cantidadUnidadesBlister &&
+      producto.precioVentaBlister !== undefined &&
+      producto.precioVentaBlister <= 0
+    ) {
+      toast({
+        title: "Precio blister inválido",
+        description: `El producto "${producto.nombre}" tiene precio de blister <= 0.`,
+        variant: "destructive"
+      })
+      return
+    }
+
+    const sel = blisterUnidadSeleccion[selectionKey] || { blisters: 0, unidades: 0 }
     const unidadesPorBlister = producto.cantidadUnidadesBlister || 0
     const cantidadTotal = unidadesPorBlister * sel.blisters + sel.unidades
     if (cantidadTotal <= 0) {
@@ -519,7 +536,6 @@ export default function NuevaVentaPage() {
     setCarrito(prev => {
       const existing = prev.find(p => p.codigoBarras === producto.codigoBarras)
       const precioBlister = producto.precioVentaBlister ?? 0
-      const precioUnidadFinal = producto.precioVentaUnd - (producto.descuento ?? 0)
 
       if (existing) {
         const newB = existing.cantidadBlister + sel.blisters
@@ -550,7 +566,7 @@ export default function NuevaVentaPage() {
         {
           codigoBarras: producto.codigoBarras,
           nombre: producto.nombre,
-          precioVentaUnd: producto.precioVentaUnd,
+            precioVentaUnd: producto.precioVentaUnd,
           precioVentaBlister: producto.precioVentaBlister,
           cantidadUnidadesBlister: producto.cantidadUnidadesBlister,
           descuento: producto.descuento,
@@ -563,12 +579,31 @@ export default function NuevaVentaPage() {
     })
   }
 
-  // MOD: cambiarCantidadCarrito ya no busca el producto en 'productos'; usa el stockDisponible.
   const cambiarCantidadCarrito = (codigoBarras: string, tipo: "blister" | "unidad", delta: number) => {
     setCarrito(prev =>
       prev
         .map(item => {
           if (item.codigoBarras !== codigoBarras) {
+            return item
+          }
+
+          // VALIDAR código de barras (si se quedó vacío por algún bug)
+          if (!item.codigoBarras || !item.codigoBarras.trim()) {
+            toast({
+              title: "Código inválido",
+              description: "Este producto no tiene código de barras válido.",
+              variant: "destructive"
+            })
+            return item
+          }
+
+          const precioUnidadFinal = item.precioVentaUnd - (item.descuento ?? 0)
+          if (precioUnidadFinal <= 0) {
+            toast({
+              title: "Precio inválido",
+              description: `El producto "${item.nombre}" tiene precio unidad <= 0.`,
+              variant: "destructive"
+            })
             return item
           }
 
@@ -593,7 +628,6 @@ export default function NuevaVentaPage() {
             return item
           }
           const precioBlister = item.precioVentaBlister ?? 0
-          const precioUnidadFinal = item.precioVentaUnd - (item.descuento ?? 0)
           return {
             ...item,
             cantidadBlister: nb,
@@ -625,6 +659,21 @@ export default function NuevaVentaPage() {
     const abierta = await checkCajaAbierta(true)
     if (!abierta) return
 
+    // Validación de integridad del carrito antes de enviar al backend
+    const productoInvalido = carrito.find(p => {
+      const codigo = (p.codigoBarras || "").trim()
+      const precioUnidadFinal = p.precioVentaUnd - (p.descuento ?? 0)
+      return !codigo || precioUnidadFinal <= 0
+    })
+    if (productoInvalido) {
+      toast({
+        title: "Carrito inválido",
+        description: `El producto "${productoInvalido.nombre}" tiene código vacío o precio <= 0.`,
+        variant: "destructive"
+      })
+      return
+    }
+
     // Validaciones de pago
     if (metodoPago === "efectivo") {
       const efectivo = Number(montoEfectivo) || 0
@@ -651,7 +700,6 @@ export default function NuevaVentaPage() {
       }
     }
 
-    // CAMBIO IMPORTANTE: validación de nombreCliente solo si no es vacío ni solo espacios
     if (!nombreCliente.trim() || !usuarioSesion?.nombreCompleto) {
       toast({ title: "Faltan datos", description: "Completa los datos del cliente", variant: "destructive" })
       return
@@ -659,7 +707,7 @@ export default function NuevaVentaPage() {
 
     const ventaDTO = {
       dniCliente: dniCliente.trim() || "",
-      nombreCliente: nombreCliente.trim(), // <-- asegurarse que se guarda sin espacios
+      nombreCliente: nombreCliente.trim(),
       dniVendedor: usuarioSesion?.dni || "",
       productos: carrito.map(item => ({
         codBarras: item.codigoBarras,
@@ -693,7 +741,7 @@ export default function NuevaVentaPage() {
         metodoPago,
         montoEfectivo: Number(montoEfectivo) || 0,
         montoYape: Number(montoYape) || 0,
-        nombreCliente: nombreCliente.trim(), // <-- asegurarse que va trimmeado
+        nombreCliente: nombreCliente.trim(),
         dniCliente: dniCliente.trim(),
         nombreVendedor: usuarioSesion?.nombreCompleto
       })
@@ -734,12 +782,10 @@ export default function NuevaVentaPage() {
         )
       } catch {}
 
-      // Refrescar productos
       try {
         await cargarProductos({ q: debouncedBusqueda, page: 1, size: pageSize })
       } catch {}
 
-      // Reset
       setCarrito([])
       setMontoEfectivo("")
       setMontoYape("")
@@ -763,7 +809,6 @@ export default function NuevaVentaPage() {
 
   const procesarVentaDisabled = carrito.length === 0 || !cajaAbierta || cargandoCaja
 
-  /* ---------- Subcomponente SortButton ---------- */
   function SortButton({ field, children }: { field: SortField; children: React.ReactNode }) {
     const active = sortField === field
     const dirIcon = active ? (sortDir === "asc" ? <ArrowUpAZ className="h-3 w-3" /> : <ArrowDownAZ className="h-3 w-3" />) : <ChevronsUpDown className="h-3 w-3 opacity-60" />
@@ -782,14 +827,10 @@ export default function NuevaVentaPage() {
     )
   }
 
-  /* -------------------------------------------------- */
-  /*                     RENDER UI                      */
-  /* -------------------------------------------------- */
   return (
     <div className="relative flex flex-col gap-8">
       <BackgroundFX />
 
-      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4 relative z-10">
         <Link
           href="/dashboard/ventas"
@@ -810,11 +851,8 @@ export default function NuevaVentaPage() {
         </div>
       </div>
 
-      {/* GRID PRINCIPAL */}
       <div className="grid gap-8 xl:grid-cols-3">
-        {/* IZQUIERDA (2/3) - Buscar + Carrito */}
         <div className="space-y-8 xl:col-span-2">
-          {/* Buscar Productos */}
           <GlassPanel>
             <CardHeader className="pb-4">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -947,28 +985,33 @@ export default function NuevaVentaPage() {
                             </TableCell>
                           </TableRow>
                         )}
-                        {resultados.map(prod => {
+                        {resultados.map((prod, idx) => {
+                          const selectionKey =
+                            prod.codigoBarras ??
+                            `${(prod.nombre || "").trim()}|${(prod.laboratorio || "").trim()}|${idx}`
+                          const rowKey = prod.codigoBarras ?? `result-${idx}`
+
                           const precioUnidadFinal =
                             prod.precioVentaUnd - (prod.descuento ?? 0)
                           const descuentoPct =
-                            prod.precioVentaUnd > 0 && prod.descuento > 0
-                              ? (prod.descuento / prod.precioVentaUnd) * 100
+                            prod.precioVentaUnd > 0 && (prod.descuento ?? 0) > 0
+                              ? ((prod.descuento ?? 0) / prod.precioVentaUnd) * 100
                               : 0
                           const sel =
-                            blisterUnidadSeleccion[prod.codigoBarras] || {
+                            blisterUnidadSeleccion[selectionKey] || {
                               blisters: 0,
                               unidades: 0
                             }
                           const tipoBadgeVariant =
                             prod.tipoMedicamento === "MARCA" ? "destructive" : "outline"
                           return (
-                            <TableRow key={prod.codigoBarras} className="text-[11.5px]">
+                            <TableRow key={rowKey} className="text-[11.5px]">
                               <TableCell className="align-top">
                                 <div className="font-medium leading-tight">
                                   {prod.nombre}
                                 </div>
                                 <div className="text-[9px] text-muted-foreground">
-                                  {prod.codigoBarras}
+                                  {prod.codigoBarras || "—"}
                                 </div>
                               </TableCell>
                               <TableCell className="align-top">
@@ -1070,10 +1113,10 @@ export default function NuevaVentaPage() {
                                             const v = Math.max(0, Number(e.target.value))
                                             setBlisterUnidadSeleccion(prev => ({
                                               ...prev,
-                                              [prod.codigoBarras]: {
+                                              [selectionKey]: {
                                                 blisters: v,
                                                 unidades:
-                                                  prev[prod.codigoBarras]?.unidades ?? 0
+                                                  prev[selectionKey]?.unidades ?? 0
                                               }
                                             }))
                                           }}
@@ -1106,9 +1149,9 @@ export default function NuevaVentaPage() {
                                             if (v > maxU) v = maxU
                                             setBlisterUnidadSeleccion(prev => ({
                                               ...prev,
-                                              [prod.codigoBarras]: {
+                                              [selectionKey]: {
                                                 blisters:
-                                                  prev[prod.codigoBarras]?.blisters ?? 0,
+                                                  prev[selectionKey]?.blisters ?? 0,
                                                 unidades: v
                                               }
                                             }))
@@ -1129,7 +1172,7 @@ export default function NuevaVentaPage() {
                                           const v = Math.max(0, Number(e.target.value))
                                           setBlisterUnidadSeleccion(prev => ({
                                             ...prev,
-                                            [prod.codigoBarras]: {
+                                            [selectionKey]: {
                                               blisters: 0,
                                               unidades: v
                                             }
@@ -1144,7 +1187,7 @@ export default function NuevaVentaPage() {
                                 <Button
                                   size="sm"
                                   className="text-xs"
-                                  onClick={() => agregarAlCarrito(prod)}
+                                  onClick={() => agregarAlCarrito(prod, selectionKey)}
                                   disabled={prod.cantidadGeneral === 0}
                                 >
                                   <Plus className="h-4 w-4 mr-1" />
@@ -1162,7 +1205,6 @@ export default function NuevaVentaPage() {
             </CardContent>
           </GlassPanel>
 
-          {/* Carrito */}
           <GlassPanel>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
@@ -1189,8 +1231,8 @@ export default function NuevaVentaPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {carrito.map(item => (
-                        <TableRow key={item.codigoBarras} className="text-[12px]">
+                      {carrito.map((item, idx) => (
+                        <TableRow key={item.codigoBarras || `car-${idx}`} className="text-[12px]">
                           <TableCell>
                             <div className="font-medium flex items-center gap-2">
                               {item.nombre}
@@ -1204,7 +1246,7 @@ export default function NuevaVentaPage() {
                               )}
                             </div>
                             <div className="text-[10px] text-muted-foreground">
-                              {item.codigoBarras}
+                              {item.codigoBarras || "—"}
                             </div>
                           </TableCell>
                           <TableCell>
@@ -1259,9 +1301,7 @@ export default function NuevaVentaPage() {
           </GlassPanel>
         </div>
 
-        {/* DERECHA - Cliente + Pago + Resumen */}
         <div className="space-y-8">
-          {/* Datos del cliente */}
           <GlassPanel>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
@@ -1308,109 +1348,107 @@ export default function NuevaVentaPage() {
             </CardContent>
           </GlassPanel>
 
-          {/* Método de Pago */}
-            <GlassPanel>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <CreditCard className="h-5 w-5 text-primary" />
-                  Método de Pago
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                <RadioGroup
-                  value={metodoPago}
-                  onValueChange={v => {
-                    setMetodoPago(v as MetodoPago)
-                    setMontoEfectivo("")
-                    setMontoYape("")
-                  }}
-                  className="grid gap-2 text-sm"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="efectivo" id="p-efectivo" />
-                    <Label htmlFor="p-efectivo">Efectivo</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="yape" id="p-yape" />
-                    <Label htmlFor="p-yape">Yape</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="mixto" id="p-mixto" />
-                    <Label htmlFor="p-mixto">Mixto</Label>
-                  </div>
-                </RadioGroup>
+          <GlassPanel>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <CreditCard className="h-5 w-5 text-primary" />
+                Método de Pago
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <RadioGroup
+                value={metodoPago}
+                onValueChange={v => {
+                  setMetodoPago(v as MetodoPago)
+                  setMontoEfectivo("")
+                  setMontoYape("")
+                }}
+                className="grid gap-2 text-sm"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="efectivo" id="p-efectivo" />
+                  <Label htmlFor="p-efectivo">Efectivo</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="yape" id="p-yape" />
+                  <Label htmlFor="p-yape">Yape</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="mixto" id="p-mixto" />
+                  <Label htmlFor="p-mixto">Mixto</Label>
+                </div>
+              </RadioGroup>
 
-                {metodoPago === "efectivo" && (
+              {metodoPago === "efectivo" && (
+                <div className="space-y-2">
+                  <Label htmlFor="monto-efectivo">Monto efectivo</Label>
+                  <Input
+                    id="monto-efectivo"
+                    type="number"
+                    step="0.01"
+                    value={montoEfectivo}
+                    onChange={e => setMontoEfectivo(e.target.value)}
+                    placeholder="0.00"
+                  />
+                  {faltante > 0 && (
+                    <div className="text-xs text-red-600">
+                      Faltan S/ {faltante.toFixed(2)}
+                    </div>
+                  )}
+                </div>
+              )}
+              {metodoPago === "yape" && (
+                <div className="space-y-2">
+                  <Label htmlFor="monto-yape">Monto Yape</Label>
+                  <Input
+                    id="monto-yape"
+                    type="number"
+                    step="0.01"
+                    value={montoYape}
+                    onChange={e => setMontoYape(e.target.value)}
+                    placeholder="0.00"
+                  />
+                  {faltante > 0 && (
+                    <div className="text-xs text-red-600">
+                      Faltan S/ {faltante.toFixed(2)}
+                    </div>
+                  )}
+                </div>
+              )}
+              {metodoPago === "mixto" && (
+                <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="monto-efectivo">Monto efectivo</Label>
+                    <Label htmlFor="monto-efectivo-mixto">Efectivo</Label>
                     <Input
-                      id="monto-efectivo"
+                      id="monto-efectivo-mixto"
                       type="number"
                       step="0.01"
                       value={montoEfectivo}
                       onChange={e => setMontoEfectivo(e.target.value)}
                       placeholder="0.00"
                     />
-                    {faltante > 0 && (
-                      <div className="text-xs text-red-600">
-                        Faltan S/ {faltante.toFixed(2)}
-                      </div>
-                    )}
                   </div>
-                )}
-                {metodoPago === "yape" && (
                   <div className="space-y-2">
-                    <Label htmlFor="monto-yape">Monto Yape</Label>
+                    <Label htmlFor="monto-yape-mixto">Yape</Label>
                     <Input
-                      id="monto-yape"
+                      id="monto-yape-mixto"
                       type="number"
                       step="0.01"
                       value={montoYape}
                       onChange={e => setMontoYape(e.target.value)}
                       placeholder="0.00"
                     />
-                    {faltante > 0 && (
-                      <div className="text-xs text-red-600">
-                        Faltan S/ {faltante.toFixed(2)}
-                      </div>
-                    )}
                   </div>
-                )}
-                {metodoPago === "mixto" && (
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="monto-efectivo-mixto">Efectivo</Label>
-                      <Input
-                        id="monto-efectivo-mixto"
-                        type="number"
-                        step="0.01"
-                        value={montoEfectivo}
-                        onChange={e => setMontoEfectivo(e.target.value)}
-                        placeholder="0.00"
-                      />
+                  {faltante > 0 && (
+                    <div className="md:col-span-2 text-xs text-red-600">
+                      Faltan S/ {faltante.toFixed(2)}
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="monto-yape-mixto">Yape</Label>
-                      <Input
-                        id="monto-yape-mixto"
-                        type="number"
-                        step="0.01"
-                        value={montoYape}
-                        onChange={e => setMontoYape(e.target.value)}
-                        placeholder="0.00"
-                      />
-                    </div>
-                    {faltante > 0 && (
-                      <div className="md:col-span-2 text-xs text-red-600">
-                        Faltan S/ {faltante.toFixed(2)}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </GlassPanel>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </GlassPanel>
 
-          {/* Resumen */}
           <GlassPanel>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
@@ -1509,7 +1547,6 @@ function QtyAdjust({
   )
 }
 
-/* Vidrio / panel futurista */
 function GlassPanel({ children }: { children: React.ReactNode }) {
   return (
     <Card className="relative overflow-hidden border-border/60 bg-background/60 backdrop-blur-xl">
@@ -1520,7 +1557,6 @@ function GlassPanel({ children }: { children: React.ReactNode }) {
   )
 }
 
-/* Fondo global futurista */
 function BackgroundFX() {
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
