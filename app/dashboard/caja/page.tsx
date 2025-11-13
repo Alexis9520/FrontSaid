@@ -1722,7 +1722,7 @@ function MetricRow({
     <div className="flex justify-between">
       <span className="text-muted-foreground">{label}</span>
       <span
-        className={cn(
+        className={cn( 
           "tabular-nums",
           color,
           bold && "font-semibold",
