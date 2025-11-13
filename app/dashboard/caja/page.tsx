@@ -874,12 +874,7 @@ export default function CajaPage() {
                 <CardDescription>Finaliza la caja actual</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="rounded-lg border bg-background/50 backdrop-blur p-3 text-xs space-y-2">
-                  <Row label="Efectivo inicial" value={resumen?.efectivoInicial} />
-                  <Row label="Ingresos manuales" value={resumen?.ingresos} sign="+" color="text-emerald-500" />
-                  <Row label="Ventas efectivo" value={resumen?.ventasEfectivo} sign="+" color="text-emerald-500" />
-                  <Row label="Egresos" value={resumen?.egresos} sign="-" color="text-red-500" />
-                </div>
+                
 
                 <div className="space-y-2">
                   <Label className="text-xs font-medium">Efectivo contado</Label>
