@@ -10,9 +10,9 @@ import { Toaster } from "@/components/ui/toaster"
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
 
 export const metadata: Metadata = {
-  title: "Nueva Esperanza",
+  title: "Boticas Said",
   description: "Sistema de gestión",
-  icons: { icon: "/icono-esperanza.png" }
+  icons: { icon: "/icono-said.png" }
 }
 
 // (Opcional) Script anti-flash de variables personalizadas (ya te lo pasé antes).

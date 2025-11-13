@@ -313,7 +313,7 @@ export default function Sidebar() {
               aria-label="Ir a inicio"
             >
               <div className="relative flex h-9 w-9 items-center justify-center">
-                <img src="/icono-sidebar.png" alt="Icono Sidebar" className="h-9 w-9" />
+                <img src="/icono-said.png" alt="Icono Sidebar" className="h-9 w-9" />
                 {isLatestRecent && (
                   <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-primary-foreground/95 text-[8px] font-bold text-primary shadow ring-1 ring-primary">
                     !
@@ -322,7 +322,7 @@ export default function Sidebar() {
               </div>
               {!collapsed && (
                 <span className="font-semibold text-[15px] tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
-                  Nueva Esperanza
+                  Boticas Said
                 </span>
               )}
             </Link>

@@ -768,43 +768,45 @@ export default function CajaPage() {
         )}
       </header>
 
-      {/* KPIs */}
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 relative">
-        <MetricCard
-          title="Efectivo actual"
-          icon={<DollarSign className="h-4 w-4" />}
-          value={resumen ? resumen.efectivo : null}
-          suffix="S/"
-          accent="from-emerald-500/25 to-emerald-500/5"
-          footer="Disponible en caja"
-        />
-        <MetricCard
-          title="Pagos Yape"
-          icon={<Calculator className="h-4 w-4" />}
-          value={resumen ? resumen.totalYape : null}
-          suffix="S/"
-          accent="from-cyan-500/25 to-cyan-500/5"
-          footer="Transacciones digitales"
-        />
-        <MetricCard
-          title="Ingresos"
-          icon={<TrendingUp className="h-4 w-4" />}
-          value={resumen ? resumen.ingresos : null}
-          suffix="S/"
-          positive
-          accent="from-blue-500/25 to-blue-500/5"
-          footer="Movimientos manuales"
-        />
-        <MetricCard
-          title="Egresos"
-          icon={<TrendingDown className="h-4 w-4" />}
-          value={resumen ? resumen.egresos : null}
-          suffix="S/"
-          negative
-          accent="from-red-500/25 to-red-500/5"
-          footer="Salidas registradas"
-        />
-      </section>
+      {/* KPIs: sólo administradores */}
+      {usuario?.rol?.toLowerCase() === "administrador" && (
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 relative">
+          <MetricCard
+            title="Efectivo actual"
+            icon={<DollarSign className="h-4 w-4" />}
+            value={resumen ? (resumen.efectivoFinal ?? resumen.efectivo) : null}
+            suffix="S/"
+            accent="from-emerald-500/25 to-emerald-500/5"
+            footer="Disponible en caja"
+          />
+          <MetricCard
+            title="Pagos Yape"
+            icon={<Calculator className="h-4 w-4" />}
+            value={resumen ? resumen.totalYape : null}
+            suffix="S/"
+            accent="from-cyan-500/25 to-cyan-500/5" 
+            footer="Transacciones digitales"
+          />
+          <MetricCard
+            title="Ingresos"
+            icon={<TrendingUp className="h-4 w-4" />}
+            value={resumen ? resumen.ingresos : null}
+            suffix="S/"
+            positive
+            accent="from-blue-500/25 to-blue-500/5"
+            footer="Movimientos manuales"
+          />
+          <MetricCard
+            title="Egresos"
+            icon={<TrendingDown className="h-4 w-4" />}
+            value={resumen ? resumen.egresos : null}
+            suffix="S/"
+            negative
+            accent="from-red-500/25 to-red-500/5"
+            footer="Salidas registradas"
+          />
+        </section>
+      )}
 
       {/* Tabs */}
       <Tabs defaultValue="movimientos" className="space-y-6 relative z-10">
@@ -818,9 +820,11 @@ export default function CajaPage() {
           <FancyTab value="historial" icon={<History className="h-4 w-4" />}>
             Historial
           </FancyTab>
-          <FancyTab value="resumen" icon={<LibraryBig className="h-4 w-4" />}>
-            Resumen
-          </FancyTab>
+          {usuario?.rol?.toLowerCase() === "administrador" && (
+            <FancyTab value="resumen" icon={<LibraryBig className="h-4 w-4" />}>
+              Resumen
+            </FancyTab>
+          )}
         </TabsList>
 
         {/* ESTADO */}
@@ -852,6 +856,7 @@ export default function CajaPage() {
                 <Button
                   onClick={abrirCaja}
                   disabled={cajaAbierta || loading}
+                  
                   className="w-full"
                 >
                   {cajaAbierta ? "Caja ya abierta" : loading ? "Procesando..." : "Abrir Caja"}
@@ -1301,8 +1306,9 @@ export default function CajaPage() {
           </GlassPanel>
         </TabsContent>
 
-        {/* RESUMEN */}
-        <TabsContent value="resumen" className="space-y-6">
+        {/* RESUMEN (solo administradores) */}
+        {usuario?.rol?.toLowerCase() === "administrador" && (
+          <TabsContent value="resumen" className="space-y-6">
           <GlassPanel>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2">
@@ -1368,7 +1374,8 @@ export default function CajaPage() {
               </div>
             </CardContent>
           </GlassPanel>
-        </TabsContent>
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Dialogs */}

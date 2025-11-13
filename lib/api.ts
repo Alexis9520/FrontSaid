@@ -29,7 +29,13 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}, toas
     ...(hasBody ? { "Content-Type": (options.headers as any)?.["Content-Type"] || "application/json" } : {})
   } as Record<string, string>;
 
-  const res = await fetch(url, { ...options, headers });
+  let res: Response;
+  try {
+    res = await fetch(url, { ...options, headers, mode: (options as any).mode || "cors" });
+  } catch (e: any) {
+    if (toastFn) toastFn({ title: "Conexión fallida", description: "No se pudo conectar con el servidor.", variant: "destructive" });
+    throw new Error(e?.message || "Failed to fetch");
+  }
 
   if (!res.ok) {
     let errorText = await res.text(); let backendMsg = "";

@@ -168,7 +168,7 @@ export default function LoginForm() {
                   </span>
                 </h1>
                 <p className="mt-5 max-w-md text-[13.5px] leading-relaxed text-slate-300/90 sm:text-sm md:text-[15px]">
-                  
+                  Siempre pensando en tu salud y economía.
                 </p>
                 <div className="mt-6">
                   
@@ -314,10 +314,10 @@ function BrandHeaderLeft({ compactOnMobile }: { compactOnMobile?: boolean }) {
   return (
     <div className={`flex items-center gap-4 ${compactOnMobile ? "sm:gap-4" : ""}`}>
     <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl">
-      <img src="/icono-sidebar.png" alt="Icono Sidebar" className="h-12 w-12" />
+      <img src="/icono-said.png" alt="Icono Sidebar" className="h-12 w-12" />
     </div>
     <div className="leading-tight">
-      <p className="text-lg sm:text-xl font-semibold text-white">Botica Nueva Esperanza</p>
+      <p className="text-lg sm:text-xl font-semibold text-white">Boticas Said</p>
       <p className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wider text-slate-300">
         Salud & Economía
       </p>

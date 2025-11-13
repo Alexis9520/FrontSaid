@@ -100,11 +100,11 @@ export default function ConfiguracionPage() {
   const { toast } = useToast()
 
   const [configuracionGeneral, setConfiguracionGeneral] = useLocalStorageState<ConfGeneral>("configuracionGeneral", {
-    nombreNegocio: "Botica Nueva Esperanza",
-    direccion: "Av. La Esperanza 403 - El Tambo",
-    telefono: "+51 961 668 320",
-    email: "contacto@nuevaesperanza.net.pe",
-    ruc: "1234567890",
+    nombreNegocio: "Boticas Said",
+    direccion: "Av. Unión Mz W2 Lt.19 C.P Jicamarca anexo 8",
+    telefono: "",
+    email: "",
+    ruc: "",
     moneda: "S/",
   })
 
@@ -284,11 +284,11 @@ export default function ConfiguracionPage() {
 
   const resetearConfiguracion = () => {
     setConfiguracionGeneral({
-      nombreNegocio: "Botica Nueva Esperanza",
-      direccion: "Av. La Esperanza 403 - El Tambo",
-      telefono: "+51 961 668 320",
-      email: "contacto@nuevaesperanza.net.pe",
-      ruc: "1234567890",
+      nombreNegocio: "Boticas Said",
+      direccion: "Av. Unión Mz.W2 Lt.19 C.P Jicamarca anexo 8",
+      telefono: "",
+      email: "",
+      ruc: "",
       moneda: "S/",
     })
     setConfiguracionBoleta({

@@ -47,6 +47,7 @@ import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/lib/use-toast"
 import { apiUrl } from "@/components/config"
+import { fetchWithAuth } from "@/lib/api"
 import { buildTicketHTML, VentaPreview } from "@/lib/print-utils"
 import { cn } from "@/lib/utils"
 
@@ -87,39 +88,7 @@ interface UsuarioSesion {
 type SortField = "nombre" | "precio" | "stock" | "laboratorio" | "tipo" | "concentracion"
 type MetodoPago = "efectivo" | "yape" | "mixto"
 
-/* -------------------------------------------------- */
-/*                  FETCH con token                   */
-/* -------------------------------------------------- */
-async function fetchWithAuth(url: string, options: RequestInit = {}) {
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
-  if (!token) {
-    window.location.href = "/login"
-    throw new Error("No token")
-  }
-  const headers = {
-    ...(options.headers || {}),
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json"
-  }
-  const res = await fetch(url, { ...options, headers })
-  if (!res.ok) {
-    if (res.status === 401) {
-      localStorage.removeItem("token")
-      window.location.href = "/login"
-    }
-    const errorText = await res.text()
-    throw new Error(errorText || `Error en la petición: ${res.status}`)
-  }
-  const contentLength = res.headers.get("content-length")
-  if (res.status === 204 || contentLength === "0") return null
-  const text = await res.text()
-  if (!text) return null
-  try {
-    return JSON.parse(text)
-  } catch {
-    return null
-  }
-}
+/* NOTE: usamos `fetchWithAuth` centralizado desde `lib/api.ts` */
 
 /* -------------------------------------------------- */
 /*        Construir preview (ticket impresión)        */
@@ -246,8 +215,8 @@ export default function NuevaVentaPage() {
       const data = localStorage.getItem("configuracionGeneral")
       return data
         ? JSON.parse(data)
-        : {
-            nombreNegocio: "Nueva Esperanza",
+                : {
+                    nombreNegocio: "Boticas Said",
             direccion: "Av. La Esperanza 403 - El Tambo",
             telefono: "+51 961 668 320",
             ruc: "1234567890",
@@ -255,7 +224,7 @@ export default function NuevaVentaPage() {
           }
     }
     return {
-      nombreNegocio: "Botica Nueva Esperanza",
+              nombreNegocio: "Boticas Said",
       direccion: "Av. La Esperanza 403 - El Tambo",
       telefono: "+51 961 668 320",
       ruc: "1234567890",
